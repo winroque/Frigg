@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Frigg — Gerador de Laudos de Obstetrícia</title>
+  <meta name="description" content="Gerador de laudos de ultrassonografia obstétrica com calculadoras (idade gestacional, peso fetal, percentis, Doppler). Ferramenta de apoio, 100% offline." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤰</text></svg>" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <link rel="stylesheet" href="assets/css/print.css" />
+</head>
+<body>
+  <header class="topbar no-print">
+    <div class="brand">
+      <span class="logo">F</span>
+      <div>Frigg <small>Gerador de laudos de obstetrícia</small></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="btn-settings" title="Configurações">⚙️ Configurações</button>
+    <button class="btn ghost" id="btn-theme" title="Alternar tema">🌓</button>
+    <button class="btn ghost" id="btn-clear" title="Limpar campos">🗑️ Limpar</button>
+  </header>
+
+  <nav class="exam-tabs no-print" id="exam-tabs"></nav>
+
+  <main class="layout">
+    <section class="col forms" id="forms"></section>
+    <section class="col report">
+      <div class="card report-card">
+        <div class="report-actions no-print">
+          <button class="btn primary" id="btn-print">🖨️ Imprimir / PDF</button>
+          <button class="btn" id="btn-copy">📋 Copiar laudo</button>
+          <span class="spacer" style="flex:1"></span>
+          <span style="font-size:11px;color:var(--muted);align-self:center">Laudo editável ↓</span>
+        </div>
+        <div class="report-scroll">
+          <article id="laudo" contenteditable="true" spellcheck="true"></article>
+        </div>
+        <div class="disclaimer no-print">
+          ⚕️ <strong>Ferramenta de apoio à elaboração de laudos.</strong> Os cálculos e percentis
+          baseiam-se em referências publicadas (Hadlock, Robinson, Arduini &amp; Rizzo, Mari, Gómez,
+          Moore &amp; Cayle, FMF) e não substituem o julgamento clínico nem software de rastreio
+          certificado. Confira sempre os valores. Nenhum dado é enviado à internet.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de configurações -->
+  <div class="modal-back no-print" id="settings-back">
+    <div class="modal">
+      <header>
+        <h2>⚙️ Configurações</h2>
+        <button class="btn ghost" id="settings-close">✕</button>
+      </header>
+      <div class="body" id="settings-body"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
