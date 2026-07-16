@@ -111,59 +111,63 @@ const labelLower = (l) => ({
   "Informada pela mãe": "idade gestacional referida pela paciente",
 }[l] || l);
 
+// Parâmetros biométricos — uma medida por linha
 function biometryText(ctx, flags) {
   const { s, gaW, prefs, dating } = ctx;
   const bio = C.computeBiometry(s, gaW, prefs);
   if (!bio) return "";
   const m = bio.meas;
   const dof = C.helpers.num(s.dof);
-  const parts = [];
-  const bl = [];
-  if (m.bpd) bl.push(`DBP ${nf(m.bpd, 0)} mm`);
-  if (dof) bl.push(`DOF ${nf(dof, 0)} mm`);
-  if (m.hc) bl.push(`CC ${nf(m.hc, 0)} mm`);
-  if (m.ac) bl.push(`CA ${nf(m.ac, 0)} mm`);
-  if (m.fl) bl.push(`CF ${nf(m.fl, 0)} mm`);
-  if (bl.length) parts.push(`Biometria: ${bl.join(", ")}.`);
+  const lines = [];
+  const mm = (label, v) => { if (v != null && v > 0) lines.push(`${label}: ${nf(v, 1)} mm.`); };
+  mm("Diâmetro biparietal (DBP)", m.bpd);
+  mm("Diâmetro occipitofrontal (DOF)", dof);
+  mm("Circunferência cefálica (CC)", m.hc);
+  mm("Circunferência abdominal (CA)", m.ac);
+  mm("Comprimento femoral (CF)", m.fl);
+  mm("Comprimento do úmero", C.helpers.num(s.hl));
+  mm("Diâmetro transverso do cerebelo (DTC)", C.helpers.num(s.tcd));
   if (bio.efw) {
-    let w = `Peso fetal estimado de ${bio.efw.grams} g (${bio.efw.label})`;
+    lines.push(`Peso fetal estimado: ${bio.efw.grams} g (variação de ± 15%).`);
     if (bio.efwPct) {
-      const p = pctTxt(bio.efwPct.percentile);
-      const ref = dating.override ? ` (referência de IG: ${dating.best.label})` : "";
-      w += `, correspondente ao ${p}`;
+      const ref = dating.override ? `, referência ${dating.best.label}` : "";
+      let w = `Percentil de peso para a idade gestacional: ${bio.efwPct.percentile < 1 ? "< 1" : bio.efwPct.percentile > 99 ? "> 99" : Math.round(bio.efwPct.percentile)}`;
       if (bio.growth) {
-        w += ` para a idade gestacional${ref} — ${bio.growth.tag}.`;
+        w += ` (${bio.growth.tag}${ref}).`;
         if (bio.growth.cls !== "ok") {
-          flags.push(
-            bio.growth.cls === "grave"
-              ? `feto ${bio.growth.tag} (PFE ${bio.growth.txt})`
-              : `PFE no limite (${bio.growth.tag})`
-          );
+          flags.push(bio.growth.cls === "grave" ? `feto ${bio.growth.tag} (PFE ${bio.growth.txt})` : `PFE no limite (${bio.growth.tag})`);
         }
-      } else w += `${ref}.`;
-    } else w += ".";
-    parts.push(w);
+      } else w += ".";
+      lines.push(w);
+    }
   }
   // Ganho ponderal desde o exame anterior
   const ig = C.intervalGrowth(dating, bio.efw ? bio.efw.grams : null);
   if (ig) {
-    parts.push(`Ganho ponderal desde o exame anterior (${fmtDate(ig.from)}): ${ig.gain >= 0 ? "+" : ""}${ig.gain} g em ${ig.days} dias (≈ ${nf(ig.perDay, 0)} g/dia).`);
+    lines.push(`Ganho ponderal desde o exame anterior (${fmtDate(ig.from)}): ${ig.gain >= 0 ? "+" : ""}${ig.gain} g em ${ig.days} dias (≈ ${nf(ig.perDay, 0)} g/dia).`);
     if (ig.perDay < 5 && ig.days >= 10) flags.push("baixo ganho ponderal no intervalo");
   }
-  // Relações biométricas com normalidade
-  const ratios = C.computeRatios(s, gaW);
-  if (ratios) {
-    const seg = ratios.map((r) => {
-      const val = r.unit === "%" ? `${nf(r.value, 0)}%` : nf(r.value, 2);
-      const st = r.status === "ok" ? "normal" : r.status === "alto" ? "acima do esperado" : r.status === "baixo" ? "abaixo do esperado" : null;
-      if (r.status === "alto" || r.status === "baixo") flags.push(`${r.label} ${st} (${val})`);
-      return st ? `${r.label} ${val} (${st})` : `${r.label} ${val}`;
-    });
-    parts.push(`Relações biométricas: ${seg.join("; ")}.`);
-    const icAlt = ratios.find((r) => r.key === "ic" && r.status !== "ok" && r.status !== "na");
-    if (icAlt) parts.push("Índice cefálico alterado — o DBP pode ser menos confiável para a datação; priorizar CC.");
-  }
-  return parts.join(" ");
+  return lines.join("\n");
+}
+
+// Índices biométricos — uma relação por linha (formato "(×100): X % (status)")
+function ratiosText(ctx, flags) {
+  const ratios = C.computeRatios(ctx.s, ctx.gaW);
+  if (!ratios) return "";
+  const labelMap = {
+    hcac: "Relação CC/CA (×100)", flac: "Relação CF/CA (×100)",
+    flbpd: "Relação CF/DBP (×100)", ic: "Relação DBP/DOF (×100)",
+  };
+  const lines = ratios.map((r) => {
+    const pctVal = r.unit === "%" ? r.value : r.value * 100;
+    const label = labelMap[r.key] || r.label;
+    const st = r.status === "ok" ? "normal" : r.status === "alto" ? "acima do esperado" : r.status === "baixo" ? "abaixo do esperado" : null;
+    if (r.status === "alto" || r.status === "baixo") flags.push(`${label} ${st}`);
+    return `${label}: ${nf(pctVal, 1)} %${st ? ` (${st})` : ""}`;
+  });
+  const icAlt = ratios.find((r) => r.key === "ic" && (r.status === "alto" || r.status === "baixo"));
+  if (icAlt) lines.push("Índice cefálico alterado — o DBP pode ser menos confiável para a datação; priorizar a CC.");
+  return lines.join("\n");
 }
 
 function fluidText(ctx, flags) {
@@ -281,8 +285,11 @@ function buildObstetrica(ctx, push, flags) {
   if (s.bcf) sit.push(`Batimentos cardíacos fetais presentes e rítmicos, com frequência de ${nf(s.bcf, 0)} bpm.`);
   else sit.push(tpl(ctx.templates, "bcf_normal"));
   if (s.mov_fetais === "ausentes") { sit.push("Movimentos fetais não observados durante o exame."); }
+  if (s.sexo && s.sexo !== "não avaliado") sit.push(`Sexo fetal: ${s.sexo}.`);
   push("Situação e vitalidade fetal", sit.join(" "));
-  push("Biometria fetal", biometryText(ctx, flags));
+  push("Parâmetros biométricos", biometryText(ctx, flags));
+  const idx = ratiosText(ctx, flags);
+  if (idx) push("Índices biométricos", idx);
   push("Líquido amniótico", fluidText(ctx, flags) || tpl(ctx.templates, "liquido_normal"));
   push("Placenta e cordão umbilical", placentaText(ctx, flags) || tpl(ctx.templates, "placenta_normal"));
   const dop = dopplerText(ctx, flags);
@@ -407,7 +414,9 @@ function buildMorfo(ctx, push, flags) {
   if (s.bcf) sit.push(`FCF ${nf(s.bcf, 0)} bpm.`);
   if (s.sexo && s.sexo !== "não avaliado") sit.push(`Sexo fetal aparente: ${s.sexo}.`);
   push("Situação fetal", sit.join(" "));
-  push("Biometria fetal", biometryText(ctx, flags));
+  push("Parâmetros biométricos", biometryText(ctx, flags));
+  const idxM = ratiosText(ctx, flags);
+  if (idxM) push("Índices biométricos", idxM);
 
   // Anatomia por sistema
   const systems = [["snc", "Sistema nervoso central"], ["face", "Face e pescoço"], ["torax", "Tórax e pulmões"], ["coracao", "Coração"], ["abdome", "Abdome e parede"], ["rins", "Rins e trato urinário"], ["coluna", "Coluna vertebral"], ["membros", "Membros"], ["cordao", "Cordão umbilical"]];
@@ -541,7 +550,14 @@ function buildConclusion(examId, ctx, flags) {
     if (bpp) lines.push(`Perfil biofísico fetal ${bpp.score}/${bpp.max}.`);
   } else {
     const base = examId === "gemelar" ? "Gestação gemelar tópica" : "Gestação tópica, feto único e vivo";
-    lines.push(ga ? `${base}, com idade gestacional de ${ga}${dating.edd ? ` e DPP em ${fmtDate(dating.edd)}` : ""}.` : `${base}.`);
+    // Dupla referência de IG: quando a IG adotada não vem da biometria e há
+    // biometria disponível, informa também a IG biométrica para comparação.
+    let gaClause = ga ? `com idade gestacional de ${ga}` : null;
+    if (ga && dating.bio && dating.best && dating.best.key !== "bio") {
+      gaClause = `com idade gestacional compatível com ${ga} pela ${labelLower(dating.best.label)} e ${R.formatGaDays(dating.bio.gaDays)} pela biometria`;
+    }
+    lines.push(gaClause ? `${base}, ${gaClause}.` : `${base}.`);
+    if (dating.edd) lines.push(`Data provável do parto em ${fmtDate(dating.edd)}.`);
     // PFE percentil
     const bio = C.computeBiometry(ctx.s, ctx.dating.bestGaWeeks, ctx.prefs);
     if (bio?.efwPct) lines.push(`Peso fetal estimado de ${bio.efw.grams} g (${pctTxt(bio.efwPct.percentile)}) — ${bio.growth ? bio.growth.tag : "avaliar"}.`);

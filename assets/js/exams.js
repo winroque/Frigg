@@ -184,6 +184,7 @@ export const EXAMS = {
           { id: "dorso", label: "Dorso", type: "select", cols: 1, opts: ["à esquerda", "à direita", "anterior", "posterior"] },
           bcfField,
           { id: "mov_fetais", label: "Movimentos fetais", type: "select", cols: 1, opts: [["presentes", "presentes"], ["ausentes", "ausentes"]] },
+          { id: "sexo", label: "Sexo fetal", type: "select", cols: 1, opts: [["não avaliado", "não avaliado"], ["feminino", "feminino"], ["masculino", "masculino"]] },
         ],
       },
       biometrySection(),

@@ -140,14 +140,19 @@ check("laudo 1º tri menciona descolamento", rep1t.sections.some((x) => /descola
 console.log("\n== Geração de laudo (obstétrica) ==");
 const rep = generateReport("obstetrica", {
   pac_nome: "Teste", exam_data: "2026-07-16", dum: "2025-12-20",
-  bpd: 82, hc: 292, ac: 285, fl: 62, ila_q1: 40, ila_q2: 45, ila_q3: 38, ila_q4: 37,
-  placenta_local: "anterior", placenta_grau: "II", bcf: 145, apresentacao: "cefálica",
-  au_ip: 0.9, acm_ip: 1.9,
+  bpd: 82, dof: 100, hc: 292, ac: 285, fl: 62, ila_q1: 40, ila_q2: 45, ila_q3: 38, ila_q4: 37,
+  placenta_local: "anterior", placenta_ecotextura: "homogênea", bcf: 145, apresentacao: "cefálica",
+  sexo: "masculino", au_ip: 0.9, acm_ip: 1.9,
 }, { growthStd: "hadlock" }, {});
 check("laudo tem título", /OBSTÉTRICA/.test(rep.title), rep.title);
-check("laudo tem seções", rep.sections.length >= 4, rep.sections.length + " seções");
-check("conclusão presente", rep.conclusion.length > 10, rep.conclusion.slice(0, 60) + "…");
+const secParam = rep.sections.find((x) => x.title === "Parâmetros biométricos");
+check("biometria em linhas (uma por linha)", secParam && /Diâmetro biparietal \(DBP\): .*\n/.test(secParam.text), secParam ? secParam.text.split("\n")[0] : "—");
+const secIdx = rep.sections.find((x) => x.title === "Índices biométricos");
+check("índices biométricos em linhas", secIdx && /Relação CC\/CA \(×100\):/.test(secIdx.text), secIdx ? secIdx.text.split("\n")[0] : "—");
+check("sexo fetal no laudo", rep.sections.some((x) => /Sexo fetal: masculino/.test(x.text)), "ok");
+check("conclusão com dupla IG (referência × biometria)", /compatível com .* pela .* e .* pela biometria/.test(rep.conclusion), rep.conclusion.split("\n")[0].slice(0, 90));
 console.log("\n--- Exemplo de conclusão ---\n" + rep.conclusion + "\n");
+console.log("--- Parâmetros biométricos ---\n" + (secParam ? secParam.text : "") + "\n\n--- Índices biométricos ---\n" + (secIdx ? secIdx.text : "") + "\n");
 
 console.log("\n== Todos os exames geram laudo sem erro ==");
 for (const ex of ["obstetrica", "primeiro_tri", "morfologico", "gemelar", "cervical", "pbf"]) {
