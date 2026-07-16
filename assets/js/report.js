@@ -291,12 +291,48 @@ function buildObstetrica(ctx, push, flags) {
 function buildFirstTri(ctx, push, flags) {
   const { s } = ctx;
   push("Idade gestacional", datingText(ctx));
-  const sit = [];
-  sit.push((s.num_fetos && s.num_fetos !== "único" ? `Gestação com ${s.num_fetos} embriões` : "Gestação única, tópica") + ".");
-  sit.push("Embrião/feto com atividade cardíaca presente" + (s.bcf ? `, frequência de ${nf(s.bcf, 0)} bpm.` : "."));
-  if (s.crl) sit.push(`Comprimento cabeça-nádega (CCN) de ${nf(s.crl, 1)} mm.`);
-  push("Avaliação embrionária/fetal", sit.join(" "));
 
+  // Saco gestacional e implantação
+  const gs = C.computeGestSac(s);
+  if (gs) {
+    const p = [];
+    const nSac = gs.num && gs.num !== "1" ? `Observados ${gs.num} sacos gestacionais` : "Saco gestacional único";
+    let situ = gs.situacao === "não visualizado" ? "não visualizado" : gs.situacao === "irregular" ? "tópico, de contornos irregulares" : "tópico, de contornos regulares";
+    p.push(`${nSac}, ${situ}.`);
+    if (gs.trofoblasto) p.push(`Trofoblasto de inserção ${gs.trofoblasto}.`);
+    if (gs.msd != null) {
+      p.push(`Diâmetro médio do saco gestacional (DMSG) de ${nf(gs.msd, 1)} mm, correspondente a idade gestacional de ${R.formatGaDays(gs.gaDays)} pelo saco.`);
+    }
+    if (gs.vv) {
+      if (gs.vv.presente) {
+        p.push(`Vesícula vitelina presente${gs.vv.diam != null ? `, medindo ${nf(gs.vv.diam, 1)} mm` : ""}.`);
+        if (gs.vv.alterada) { p.push("Vesícula vitelina aumentada (> 6 mm) — associada a pior prognóstico."); flags.push("vesícula vitelina alterada"); }
+      } else {
+        p.push("Vesícula vitelina não identificada.");
+        if (gs.vv.alterada) flags.push("vesícula vitelina ausente");
+      }
+    }
+    push("Saco gestacional e implantação", p.join(" "));
+  }
+
+  // Embrião e vitalidade
+  const emb = [];
+  if (s.embriao_visualizado === "não") {
+    emb.push("Embrião não visualizado.");
+  } else {
+    if (s.crl) emb.push(`Embrião com comprimento cabeça-nádega (CCN) de ${nf(s.crl, 1)} mm.`);
+    if (s.atividade_cardiaca === "presente") emb.push(`Atividade cardíaca presente${s.bcf ? `, com frequência de ${nf(s.bcf, 0)} bpm` : ""}.`);
+    else if (s.atividade_cardiaca === "ausente") { emb.push("Atividade cardíaca não detectada."); }
+  }
+  const viab = C.computeViability(s);
+  if (viab) {
+    emb.push(`${cap(viab.txt)}.`);
+    if (viab.status === "inviavel") flags.push("gestação inviável");
+    else if (viab.status === "suspeito") flags.push("viabilidade indeterminada");
+  }
+  if (emb.length) push("Embrião e vitalidade", emb.join(" "));
+
+  // TN e marcadores
   const ft = C.computeFirstTri(s);
   const tnParts = [];
   if (ft && ft.tn != null) {
@@ -312,9 +348,52 @@ function buildFirstTri(ctx, push, flags) {
   if (ft && ft.riscoIdadeT21) tnParts.push(`Risco basal para trissomia do 21 pela idade materna: 1:${ft.riscoIdadeT21}. (Estimativa; não substitui rastreio combinado certificado.)`);
   if (tnParts.length) push("Translucência nucal e marcadores", tnParts.join(" "));
 
+  // Descolamento / coleções
+  const dsc = descolamentoText(ctx, flags);
+  if (dsc) push("Coleções / descolamento", dsc);
+
+  // Colo uterino
+  if (s.colo_comprimento != null || s.afunilamento || s.sludge) {
+    const col = cervixText(ctx, flags);
+    if (col) push("Colo uterino", col);
+  }
+
+  // Útero, ovários e anexos
+  const anx = [];
+  const cl = C.computeCorpoLuteo(s);
+  if (cl && cl.ovario && cl.ovario !== "não identificado") {
+    anx.push(`Corpo lúteo no ovário ${cl.ovario}${cl.medida != null ? `, medindo ${nf(cl.medida, 0)} mm` : ""}.`);
+  }
+  if (s.ovarios_obs) anx.push(s.ovarios_obs);
+  if (s.utero_obs) anx.push(s.utero_obs);
+  if (anx.length) push("Útero, ovários e anexos", anx.join(" "));
+
   if (s.anat_precoce === "alterado" && s.anat_precoce_desc) push("Anatomia precoce", s.anat_precoce_desc);
-  else push("Anatomia precoce", "Anatomia fetal precoce sem alterações grosseiras detectáveis nesta idade gestacional.");
-  if (s.utero_anexos) push("Útero e anexos", s.utero_anexos);
+  else push("Anatomia precoce", "Anatomia embrionária/fetal precoce sem alterações grosseiras detectáveis nesta idade gestacional.");
+}
+
+const cap = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+
+function descolamentoText(ctx, flags) {
+  const d = C.computeDescolamento(ctx.s);
+  if (!d) return "";
+  const p = [];
+  const dims = [d.d1, d.d2, d.d3].filter((v) => v != null && v > 0).map((v) => nf(v, 0)).join(" × ");
+  if (d.tipo === "descolamento") {
+    let t = `Imagem sugestiva de descolamento subcoriônico (hematoma)${dims ? `, medindo ${dims} mm` : ""}`;
+    if (d.areaCm2 != null) t += `, com área estimada de ${nf(d.areaCm2, 1)} cm²`;
+    if (d.volMl != null) t += ` e volume de ${nf(d.volMl, 1)} mL`;
+    t += ".";
+    if (d.pctSac != null) { t += ` Corresponde a aproximadamente ${nf(d.pctSac, 0)}% do volume do saco gestacional (descolamento ${d.sizeTag}).`; flags.push(`descolamento subcoriônico ${d.sizeTag}`); }
+    else flags.push("descolamento subcoriônico");
+    t += " Diagnóstico diferencial com fusão incompleta das decíduas; correlacionar com sangramento e ecogenicidade do conteúdo.";
+    p.push(t);
+  } else if (d.tipo === "fusao_deciduas") {
+    p.push(`Imagem anecoica peri-sacular${dims ? ` (${dims} mm)` : ""} compatível com fusão incompleta das decíduas capsular e parietal, achado fisiológico habitual antes de ~16 semanas — sem características de coleção hemática. Diferencial com descolamento subcoriônico.`);
+  } else if (d.tipo === "separacao_corioamniotica") {
+    p.push(`Separação corioamniótica (âmnio ainda não fundido ao córion)${dims ? `, com espaço de ${dims} mm` : ""} — achado que pode ser fisiológico antes de ~14–16 semanas; recomendável acompanhamento.`);
+  }
+  return p.join(" ");
 }
 
 function buildMorfo(ctx, push, flags) {
@@ -436,7 +515,19 @@ function buildConclusion(examId, ctx, flags) {
   const lines = [];
   const ga = dating.bestGaDays != null ? R.formatGaDays(dating.bestGaDays) : null;
 
-  if (examId === "cervical") {
+  if (examId === "primeiro_tri") {
+    const s = ctx.s;
+    const nSac = s.num_sacos && s.num_sacos !== "1" ? `gemelar (${s.num_sacos} sacos)` : "única";
+    const viab = C.computeViability(s);
+    const gsrc = dating.best ? ` (${dating.best.label})` : "";
+    if (viab && viab.status === "inviavel") {
+      lines.push(`Gestação tópica ${nSac} inviável — ${viab.txt}.`);
+    } else if (viab && (viab.status === "suspeito" || viab.status === "inicial")) {
+      lines.push(`Gestação tópica ${nSac} inicial, de viabilidade indeterminada — recomendável reavaliação ultrassonográfica em 7–14 dias.`);
+    } else {
+      lines.push(`Gestação tópica ${nSac}, embrião vivo${ga ? `, com idade gestacional de ${ga}${gsrc}` : ""}${dating.edd ? ` e DPP em ${fmtDate(dating.edd)}` : ""}.`);
+    }
+  } else if (examId === "cervical") {
     const c = C.computeCervix(ctx.s);
     if (c && c.comprimento != null) {
       lines.push(c.curto ? `Colo uterino encurtado (${nf(c.comprimento, 0)} mm).` : `Colo uterino de comprimento preservado (${nf(c.comprimento, 0)} mm).`);
@@ -457,6 +548,8 @@ function buildConclusion(examId, ctx, flags) {
     lines.push("Achados a destacar: " + uniq.join("; ") + ".");
   } else if (examId === "morfologico") {
     lines.push("Estudo morfológico sem evidência de malformações maiores; anatomia fetal compatível com a idade gestacional.");
+  } else if (examId === "primeiro_tri") {
+    lines.push("Demais estruturas avaliadas sem alterações para a idade gestacional.");
   } else if (examId !== "cervical" && examId !== "pbf") {
     lines.push("Vitalidade fetal preservada e demais parâmetros dentro da normalidade para a idade gestacional.");
   }

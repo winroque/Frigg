@@ -247,6 +247,30 @@ function computeNoteHtml(key, s, dating, gaW) {
       const cls = b.score >= 8 ? "ok" : b.score === 6 ? "alerta" : "grave";
       return `<span class="k">Escore:</span> ${chip(b.score + "/" + b.max, cls)}`;
     }
+    case "dmsg": {
+      const gs = C.computeGestSac(s);
+      if (!gs || gs.msd == null) return `<span class="k">Informe os 3 diâmetros do saco gestacional.</span>`;
+      let h = `<span class="k">DMSG:</span> ${chip(nf(gs.msd, 1) + " mm")} · <span class="k">IG:</span> ${chip(R.formatGaDays(gs.gaDays))}`;
+      if (gs.vv && gs.vv.alterada) h += ` ${chip("vesícula vitelina alterada", "alerta")}`;
+      return h;
+    }
+    case "viability": {
+      const v = C.computeViability(s);
+      if (!v) return `<span class="k">Preencha embrião/CCN/atividade cardíaca (ou DMSG).</span>`;
+      const cls = v.status === "viavel" ? "ok" : v.status === "inviavel" ? "grave" : "alerta";
+      const tag = v.status === "viavel" ? "viável" : v.status === "inviavel" ? "inviável" : v.status === "inicial" ? "gestação inicial" : "indeterminada";
+      return `${chip(tag, cls)} <span class="k">${v.txt}</span>`;
+    }
+    case "descolamento": {
+      const d = C.computeDescolamento(s);
+      if (!d) return `<span class="k">Informe as medidas da coleção.</span>`;
+      if (d.tipo !== "descolamento") return `<span class="k">Diferencial fisiológico registrado no laudo.</span>`;
+      let h = "";
+      if (d.areaCm2 != null) h += `<span class="k">Área:</span> ${chip(nf(d.areaCm2, 1) + " cm²")} `;
+      if (d.volMl != null) h += `<span class="k">Vol:</span> ${chip(nf(d.volMl, 1) + " mL")} `;
+      if (d.sizeTag) h += chip(d.sizeTag + (d.pctSac != null ? ` (${nf(d.pctSac, 0)}% do saco)` : ""), d.sizeTag === "grande" ? "grave" : d.sizeTag === "moderado" ? "alerta" : "ok");
+      return h || `<span class="k">Informe pelo menos 2 diâmetros.</span>`;
+    }
     case "twins": {
       const gaW2 = gaW;
       const a = C.computeBiometry({ bpd: s.bpd, hc: s.hc, ac: s.ac, fl: s.fl }, gaW2, state.prefs);

@@ -98,6 +98,35 @@ check("CC/CA avaliada por IG", byK("hcac").status === "ok" || byK("hcac").status
 const rIc = C.computeRatios({ bpd: 70, dof: 105 }, 22);
 check("dolicocefalia (IC<70) sinalizada", rIc.find((x) => x.key === "ic").status === "baixo", rIc.find((x) => x.key === "ic").value.toFixed(0) + "%");
 
+console.log("\n== 1º trimestre: saco, viabilidade, descolamento ==");
+// DMSG e IG pelo saco: SG 20/22/24 → média 22 mm → IG ~ 22+30=52 dias (7s3d)
+const gs = C.computeGestSac({ sac_d1: 20, sac_d2: 22, sac_d3: 24 });
+check("DMSG médio = 22 mm", approx(gs.msd, 22, 0.1), gs.msd.toFixed(1) + " mm");
+check("IG pelo DMSG ~7s3d (52d)", gs.gaDays === 52, R.formatGaDays(gs.gaDays));
+// vesícula vitelina >6mm alterada
+const gsvv = C.computeGestSac({ sac_d1: 20, sac_d2: 22, sac_d3: 24, vesicula: "presente", vv_diam: 7 });
+check("VV 7 mm marcada como alterada", gsvv.vv.alterada === true, "diam " + gsvv.vv.diam);
+// viabilidade: CCN 8mm sem BCF → inviável
+const vInv = C.computeViability({ embriao_visualizado: "sim", crl: 8, atividade_cardiaca: "ausente" });
+check("CCN≥7 sem BCF → inviável", vInv.status === "inviavel", vInv.status);
+// viabilidade: SG ≥25 sem embrião → anembrionada
+const vAnem = C.computeViability({ embriao_visualizado: "não", sac_d1: 26, sac_d2: 25, sac_d3: 25 });
+check("SG≥25 sem embrião → inviável (anembrionada)", vAnem.status === "inviavel", vAnem.status);
+// viabilidade: embrião + BCF → viável
+const vViv = C.computeViability({ embriao_visualizado: "sim", crl: 10, atividade_cardiaca: "presente" });
+check("embrião + BCF → viável", vViv.status === "viavel", vViv.status);
+// descolamento: área elipse 30×20 mm = π/4×3×2 = 4.71 cm²
+const dsc = C.computeDescolamento({ colecao_tipo: "descolamento", desc_d1: 30, desc_d2: 20, desc_d3: 10 });
+check("área do hematoma ~4.7 cm²", approx(dsc.areaCm2, 4.71, 0.1), dsc.areaCm2.toFixed(2) + " cm²");
+check("volume do hematoma ~3.1 mL", approx(dsc.volMl, 3.14, 0.1), dsc.volMl.toFixed(2) + " mL");
+// corpo lúteo
+const clut = C.computeCorpoLuteo({ corpo_luteo_ovario: "direito", corpo_luteo_med: 18 });
+check("corpo lúteo ovário direito 18 mm", clut.ovario === "direito" && clut.medida === 18, clut.ovario + " " + clut.medida);
+// laudo 1º tri com descolamento e não-viável
+const rep1t = generateReport("primeiro_tri", { exam_data: "2026-07-16", sac_d1: 26, sac_d2: 25, sac_d3: 25, embriao_visualizado: "não", colecao_tipo: "descolamento", desc_d1: 30, desc_d2: 20, desc_d3: 10, corpo_luteo_ovario: "esquerdo", corpo_luteo_med: 20 }, {}, {});
+check("laudo 1º tri inviável na conclusão", /inviável/.test(rep1t.conclusion), rep1t.conclusion.split("\n")[0].slice(0, 60));
+check("laudo 1º tri menciona descolamento", rep1t.sections.some((x) => /descolamento/i.test(x.text)), "ok");
+
 console.log("\n== Geração de laudo (obstétrica) ==");
 const rep = generateReport("obstetrica", {
   pac_nome: "Teste", exam_data: "2026-07-16", dum: "2025-12-20",

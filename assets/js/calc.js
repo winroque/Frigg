@@ -105,7 +105,7 @@ export function computeDating(s) {
   // Concordância US × DUM (limiares ISUOG/ACOG)
   if (out.dum && (byKey("crl") || byKey("bio") || byKey("previa"))) {
     const us = byKey("crl") || byKey("previa") || byKey("bio");
-    const diff = Math.abs(us.gaDays - out.dum.gaDays);
+    const diff = Math.round(Math.abs(us.gaDays - out.dum.gaDays));
     const wk = out.dum.gaDays / 7;
     // tolerância: <9s: 5d; 9–16s: 7d; 16–22s: 10d; 22–28s: 14d; >28s: 21d
     let tol = 5;
@@ -281,6 +281,88 @@ export function computeFirstTri(s) {
   const idade = num(s.idade_materna) || num(s.pac_idade);
   if (idade && REF.ageRiskT21) out.riscoIdadeT21 = REF.ageRiskT21(idade);
   return Object.keys(out).length ? out : null;
+}
+
+/* ---------- 1º trimestre: saco gestacional, vesícula, viabilidade ---------- */
+// Diâmetro médio do saco gestacional (DMSG / MSD)
+export function meanSacDiameter(s) {
+  const d = [num(s.sac_d1), num(s.sac_d2), num(s.sac_d3)].filter((v) => v != null && v > 0);
+  return d.length ? d.reduce((a, b) => a + b, 0) / d.length : null;
+}
+
+export function computeGestSac(s) {
+  const msd = meanSacDiameter(s);
+  const has = msd != null || s.num_sacos || s.trofoblasto || s.vesicula || s.saco_situacao;
+  if (!has) return null;
+  const out = { num: s.num_sacos, trofoblasto: s.trofoblasto, situacao: s.saco_situacao };
+  if (msd != null) {
+    out.msd = msd;
+    // IG pelo DMSG (regra clássica): IG (dias) ≈ DMSG (mm) + 30
+    out.gaDays = Math.round(msd + 30);
+  }
+  if (s.vesicula) {
+    const diam = num(s.vv_diam);
+    out.vv = {
+      presente: s.vesicula === "presente",
+      diam,
+      // vesícula vitelina normal ≤ 6 mm; > 6 mm ou ausente (com SG ≥ 8 mm) = mau prognóstico
+      alterada: (diam != null && diam > 6) || (s.vesicula === "ausente" && msd != null && msd >= 8),
+    };
+  }
+  return out;
+}
+
+/*
+ * Viabilidade no 1º trimestre — critérios da Society of Radiologists in
+ * Ultrasound (Doubilet et al., NEJM 2013).
+ */
+export function computeViability(s) {
+  const crl = num(s.crl);
+  const msd = meanSacDiameter(s);
+  const emb = s.embriao_visualizado; // "sim" | "não"
+  const card = s.atividade_cardiaca; // "presente" | "ausente" | "não avaliada"
+
+  if (emb === "sim" || crl != null) {
+    if (card === "presente") return { status: "viavel", txt: "embrião com atividade cardíaca presente — gestação tópica em evolução" };
+    if (card === "ausente") {
+      if (crl != null && crl >= 7) return { status: "inviavel", txt: "CCN ≥ 7 mm sem atividade cardíaca — gestação inviável (aborto retido)" };
+      return { status: "suspeito", txt: "embrião sem atividade cardíaca com CCN < 7 mm — indeterminado; repetir em 7–14 dias" };
+    }
+    return null;
+  }
+  if (emb === "não") {
+    if (msd != null && msd >= 25) return { status: "inviavel", txt: "saco gestacional ≥ 25 mm sem embrião visível — gestação anembrionada (inviável)" };
+    if (msd != null && msd >= 16) return { status: "suspeito", txt: "saco gestacional de 16–24 mm sem embrião — indeterminado; repetir em 7–14 dias" };
+    if (msd != null) return { status: "inicial", txt: "saco gestacional inicial sem embrião — compatível com gestação muito precoce; repetir para documentar evolução" };
+  }
+  return null;
+}
+
+/*
+ * Coleções peri-saculares no 1º trimestre — descolamento subcoriônico
+ * (hematoma) × diagnósticos diferenciais (fusão incompleta das decíduas,
+ * separação corioamniótica). Área (elipse) e volume (elipsoide).
+ */
+export function computeDescolamento(s) {
+  const tipo = s.colecao_tipo;
+  if (!tipo || tipo === "ausente") return null;
+  const d1 = num(s.desc_d1), d2 = num(s.desc_d2), d3 = num(s.desc_d3);
+  const out = { tipo, d1, d2, d3 };
+  if (d1 && d2) out.areaCm2 = (Math.PI / 4) * (d1 / 10) * (d2 / 10);
+  if (d1 && d2 && d3) out.volMl = (Math.PI / 6) * (d1 / 10) * (d2 / 10) * (d3 / 10);
+  const msd = meanSacDiameter(s);
+  if (out.volMl != null && msd != null && msd > 0) {
+    const sacVol = (Math.PI / 6) * Math.pow(msd / 10, 3);
+    out.pctSac = (out.volMl / sacVol) * 100;
+    out.sizeTag = out.pctSac < 20 ? "pequeno" : out.pctSac <= 50 ? "moderado" : "grande";
+  }
+  return out;
+}
+
+// Corpo lúteo
+export function computeCorpoLuteo(s) {
+  if (!s.corpo_luteo_ovario && s.corpo_luteo_med == null) return null;
+  return { ovario: s.corpo_luteo_ovario, medida: num(s.corpo_luteo_med) };
 }
 
 /* ---------- Perfil biofísico fetal ---------- */

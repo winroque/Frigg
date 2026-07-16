@@ -200,16 +200,30 @@ export const EXAMS = {
     id: "primeiro_tri",
     name: "1º Trimestre / TN",
     icon: "🫧",
-    subtitle: "US de 1º trimestre com datação, translucência nucal e marcadores",
+    subtitle: "US de 1º trimestre: saco gestacional, viabilidade, TN e anexos",
     sections: [
       identSection(),
       {
-        id: "primeiro", title: "Avaliação de 1º trimestre", fields: [
-          { id: "num_fetos", label: "Nº de embriões", type: "select", cols: 1, opts: ["único", "dois"], default: "único" },
-          { id: "saco_gest", label: "Saco gestacional", type: "select", cols: 1, opts: [["tópico", "tópico"], ["não visualizado", "não visualizado"]] },
-          { id: "crl", label: "CCN (CRL)", type: "num", unit: "mm", cols: 1, hint: "comprimento cabeça-nádega" },
-          bcfField,
-          { id: "dating_out", label: "Idade gestacional (CCN)", type: "note", compute: "dating", cols: 3 },
+        id: "saco", title: "Saco gestacional e implantação", fields: [
+          { id: "num_sacos", label: "Nº de sacos gestacionais", type: "select", cols: 1, opts: ["1", "2", "3"], default: "1" },
+          { id: "saco_situacao", label: "Situação", type: "select", cols: 1, opts: [["tópico", "tópico"], ["não visualizado", "não visualizado"], ["irregular", "contornos irregulares"]] },
+          { id: "trofoblasto", label: "Inserção do trofoblasto", type: "select", cols: 1, opts: ["fúndica", "anterior", "posterior", "lateral direita", "lateral esquerda"] },
+          { id: "sac_d1", label: "SG — diâmetro 1", type: "num", unit: "mm", cols: 1 },
+          { id: "sac_d2", label: "SG — diâmetro 2", type: "num", unit: "mm", cols: 1 },
+          { id: "sac_d3", label: "SG — diâmetro 3", type: "num", unit: "mm", cols: 1 },
+          { id: "vesicula", label: "Vesícula vitelina", type: "select", cols: 1, opts: [["presente", "presente"], ["ausente", "ausente"]] },
+          { id: "vv_diam", label: "VV — diâmetro", type: "num", unit: "mm", cols: 1, showIf: (s) => s.vesicula === "presente" },
+          { id: "dmsg_out", label: "Diâmetro médio do saco (DMSG)", type: "note", compute: "dmsg", cols: 3 },
+        ],
+      },
+      {
+        id: "embriao", title: "Embrião / vitalidade", fields: [
+          { id: "embriao_visualizado", label: "Embrião", type: "select", cols: 1, opts: [["sim", "visualizado"], ["não", "não visualizado"]], default: "sim" },
+          { id: "crl", label: "CCN (CRL)", type: "num", unit: "mm", cols: 1, hint: "cabeça-nádega", showIf: (s) => s.embriao_visualizado !== "não" },
+          { id: "atividade_cardiaca", label: "Atividade cardíaca", type: "select", cols: 1, opts: [["presente", "presente"], ["ausente", "ausente"], ["não avaliada", "não avaliada"]], showIf: (s) => s.embriao_visualizado !== "não" },
+          { id: "bcf", label: "FCF", type: "num", unit: "bpm", cols: 1, showIf: (s) => s.atividade_cardiaca === "presente" },
+          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
+          { id: "viab_out", label: "Viabilidade (critérios SRU/Doubilet)", type: "note", compute: "viability", cols: 3 },
         ],
       },
       {
@@ -223,10 +237,25 @@ export const EXAMS = {
         ],
       },
       {
-        id: "anat1t", title: "Anatomia precoce e anexos", fields: [
+        id: "colecao", title: "Descolamento / coleções", fields: [
+          { id: "colecao_tipo", label: "Achado", type: "select", cols: 2, default: "ausente",
+            opts: [["ausente", "ausente"], ["descolamento", "descolamento subcoriônico (hematoma)"],
+              ["fusao_deciduas", "fusão incompleta das decíduas"], ["separacao_corioamniotica", "separação corioamniótica"]] },
+          { id: "desc_d1", label: "Coleção — diâmetro 1", type: "num", unit: "mm", cols: 1, showIf: (s) => s.colecao_tipo && s.colecao_tipo !== "ausente" },
+          { id: "desc_d2", label: "diâmetro 2", type: "num", unit: "mm", cols: 1, showIf: (s) => s.colecao_tipo && s.colecao_tipo !== "ausente" },
+          { id: "desc_d3", label: "diâmetro 3", type: "num", unit: "mm", cols: 1, showIf: (s) => s.colecao_tipo && s.colecao_tipo !== "ausente" },
+          { id: "desc_out", label: "Área/volume e diferencial", type: "note", compute: "descolamento", cols: 3, showIf: (s) => s.colecao_tipo && s.colecao_tipo !== "ausente" },
+        ],
+      },
+      { id: "colo1t", title: "Colo uterino", optional: true, fields: cervixFields() },
+      {
+        id: "anexos", title: "Útero, ovários e anexos", fields: [
+          { id: "corpo_luteo_ovario", label: "Corpo lúteo", type: "select", cols: 1, opts: [["direito", "ovário direito"], ["esquerdo", "ovário esquerdo"], ["não identificado", "não identificado"]] },
+          { id: "corpo_luteo_med", label: "Corpo lúteo — medida", type: "num", unit: "mm", cols: 1, showIf: (s) => s.corpo_luteo_ovario && s.corpo_luteo_ovario !== "não identificado" },
+          { id: "ovarios_obs", label: "Ovários / anexos", type: "textarea", cols: 3, placeholder: "cistos, massas anexiais, líquido livre…" },
+          { id: "utero_obs", label: "Útero", type: "textarea", cols: 3, placeholder: "miomas, malformações, DIU…" },
           { id: "anat_precoce", label: "Anatomia precoce", type: "select", cols: 1, opts: [["normal", "sem alterações"], ["alterado", "com achados"]], default: "normal" },
           { id: "anat_precoce_desc", label: "Descrição", type: "textarea", cols: 2, showIf: (s) => s.anat_precoce === "alterado" },
-          { id: "utero_anexos", label: "Útero e anexos", type: "textarea", cols: 3, placeholder: "achados uterinos/anexiais, se houver" },
         ],
       },
     ],

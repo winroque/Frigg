@@ -15,7 +15,7 @@ peso fetal estimado, percentis, Doppler, líquido amniótico, etc.).
 | Exame | Conteúdo |
 |-------|----------|
 | **Obstétrica / Doppler** | Datação, biometria, PFE + percentil, líquido, placenta/cordão, Dopplers (a. umbilical, ACM, IPC, ducto venoso, aa. uterinas), colo (opcional) |
-| **1º Trimestre / TN** | Datação por CCN, translucência nucal + percentil, osso nasal, ducto venoso, risco basal por idade materna |
+| **1º Trimestre / TN** | Saco gestacional (3 diâmetros → **DMSG** e IG pelo saco), inserção do trofoblasto, vesícula vitelina, **viabilidade** (critérios SRU/Doubilet: embrião não visualizado, anembrionada, aborto retido), datação por CCN, translucência nucal + percentil, osso nasal, ducto venoso, risco por idade; **descolamento subcoriônico** (área/volume + % do saco) com diferencial (fusão incompleta das decíduas / separação corioamniótica); colo uterino; corpo lúteo (ovário + medida) |
 | **Morfológico 2º tri** | Anatomia fetal por sistema (SNC, face, tórax, coração, abdome, rins, coluna, membros, cordão) + marcadores de aneuploidia |
 | **Gemelar** | Corionicidade/amnionicidade, biometria por feto, discordância de peso, sinais de STFF |
 | **Colo / Cervicometria** | Comprimento do colo, afunilamento, sludge, risco de parto prematuro |
