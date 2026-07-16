@@ -28,17 +28,38 @@ const bcfField = {
   id: "bcf", label: "BCF", type: "num", unit: "bpm", cols: 1, min: 60, max: 220,
 };
 
+// Datação: DUM (na identificação) + IG informada pela mãe + USG anterior + seletor
+const datingSection = () => ({
+  id: "datacao",
+  title: "Datação / Idade gestacional",
+  fields: [
+    { id: "ig_mae_sem", label: "IG informada (mãe)", type: "num", unit: "sem", cols: 1, hint: "referida pela paciente" },
+    { id: "ig_mae_dias", label: "+ dias", type: "num", unit: "d", cols: 1 },
+    { id: "ga_ref", label: "IG de referência", type: "select", cols: 1, default: "auto",
+      hint: "comanda laudo e percentis",
+      opts: [["auto", "Automática (melhor IG)"], ["previa", "USG anterior"], ["dum", "DUM"],
+        ["informada", "Informada pela mãe"], ["bio", "Biometria atual"], ["crl", "CCN"]] },
+    { id: "prev_data", label: "Data do USG anterior", type: "date", cols: 1 },
+    { id: "prev_ig_sem", label: "IG naquele exame", type: "num", unit: "sem", cols: 1 },
+    { id: "prev_ig_dias", label: "+ dias", type: "num", unit: "d", cols: 1 },
+    { id: "prev_pfe", label: "PFE anterior", type: "num", unit: "g", cols: 1, opt: true, hint: "p/ ganho ponderal" },
+    { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
+  ],
+});
+
 const biometrySection = (title = "Biometria fetal") => ({
   id: "biometria",
   title,
   fields: [
     { id: "bpd", label: "DBP", type: "num", unit: "mm", cols: 1, hint: "diâmetro biparietal" },
+    { id: "dof", label: "DOF", type: "num", unit: "mm", cols: 1, hint: "diâmetro occipitofrontal" },
     { id: "hc", label: "CC", type: "num", unit: "mm", cols: 1, hint: "circunferência cefálica" },
     { id: "ac", label: "CA", type: "num", unit: "mm", cols: 1, hint: "circunferência abdominal" },
     { id: "fl", label: "CF", type: "num", unit: "mm", cols: 1, hint: "comprimento do fêmur" },
     { id: "hl", label: "Úmero", type: "num", unit: "mm", cols: 1, opt: true },
     { id: "tcd", label: "Cerebelo (DTC)", type: "num", unit: "mm", cols: 1, opt: true },
     { id: "efw_out", label: "Peso fetal estimado", type: "note", compute: "efw", cols: 3 },
+    { id: "ratios_out", label: "Relações biométricas", type: "note", compute: "ratios", cols: 3 },
   ],
 });
 
@@ -63,7 +84,9 @@ const placentaSection = () => ({
   fields: [
     { id: "placenta_local", label: "Localização", type: "select", cols: 1,
       opts: ["anterior", "posterior", "fúndica", "lateral direita", "lateral esquerda", "prévia"] },
-    { id: "placenta_grau", label: "Grau (Grannum)", type: "select", cols: 1, opts: ["0", "I", "II", "III"] },
+    { id: "placenta_ecotextura", label: "Ecotextura", type: "select", cols: 1,
+      opts: [["homogênea", "homogênea"], ["heterogênea", "heterogênea"]], hint: "alternativa ao grau" },
+    { id: "placenta_grau", label: "Grau (Grannum)", type: "select", cols: 1, opts: ["0", "I", "II", "III"], hint: "opcional" },
     { id: "placenta_dist_oci", label: "Borda–OCI", type: "num", unit: "mm", cols: 1, hint: "distância ao orifício interno", opt: true },
     { id: "cordao_vasos", label: "Vasos do cordão", type: "select", cols: 1, opts: [["3", "3 vasos"], ["2", "2 vasos"]] },
     { id: "cordao_insercao", label: "Inserção do cordão", type: "select", cols: 2,
@@ -152,6 +175,7 @@ export const EXAMS = {
     subtitle: "US obstétrica de 2º/3º trimestre com biometria, vitalidade e Doppler",
     sections: [
       identSection(),
+      datingSection(),
       {
         id: "geral", title: "Situação fetal", fields: [
           { id: "num_fetos", label: "Nº de fetos", type: "select", cols: 1, opts: ["único", "dois", "três"], default: "único" },
@@ -160,7 +184,6 @@ export const EXAMS = {
           { id: "dorso", label: "Dorso", type: "select", cols: 1, opts: ["à esquerda", "à direita", "anterior", "posterior"] },
           bcfField,
           { id: "mov_fetais", label: "Movimentos fetais", type: "select", cols: 1, opts: [["presentes", "presentes"], ["ausentes", "ausentes"]] },
-          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
         ],
       },
       biometrySection(),
@@ -216,13 +239,13 @@ export const EXAMS = {
     subtitle: "Avaliação morfológica detalhada da anatomia fetal",
     sections: [
       identSection(),
+      datingSection(),
       {
         id: "geral", title: "Situação fetal", fields: [
           { id: "num_fetos", label: "Nº de fetos", type: "select", cols: 1, opts: ["único", "dois"], default: "único" },
           { id: "apresentacao", label: "Apresentação", type: "select", cols: 1, opts: ["cefálica", "pélvica", "córmica", "instável"] },
           bcfField,
           { id: "sexo", label: "Sexo fetal", type: "select", cols: 1, opts: [["não avaliado", "não avaliado"], ["feminino", "feminino"], ["masculino", "masculino"]] },
-          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
         ],
       },
       biometrySection(),
@@ -241,6 +264,7 @@ export const EXAMS = {
     subtitle: "Gestação múltipla: corionicidade, biometria por feto e discordância",
     sections: [
       identSection(),
+      datingSection(),
       {
         id: "corion", title: "Corionicidade", fields: [
           { id: "corionicidade", label: "Corionicidade", type: "select", cols: 1,
@@ -249,7 +273,6 @@ export const EXAMS = {
             opts: ["diamniótica", "monoamniótica"] },
           { id: "sinal_membrana", label: "Sinal da membrana", type: "select", cols: 1,
             opts: [["lambda", "lambda (λ) — dicoriônica"], ["t", "T — monocoriônica"]] },
-          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
         ],
       },
       {
@@ -289,11 +312,7 @@ export const EXAMS = {
     subtitle: "Medida do colo uterino para rastreio de parto prematuro",
     sections: [
       identSection(),
-      {
-        id: "gest", title: "Gestação", fields: [
-          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
-        ],
-      },
+      datingSection(),
       { id: "colo", title: "Colo uterino", fields: cervixFields() },
       { id: "obs", title: "Observações", fields: [{ id: "obs_texto", label: "Texto livre", type: "textarea", cols: 3 }] },
     ],
@@ -306,10 +325,10 @@ export const EXAMS = {
     subtitle: "Perfil biofísico fetal (escore de Manning)",
     sections: [
       identSection(),
+      datingSection(),
       {
-        id: "gest", title: "Gestação", fields: [
+        id: "gest", title: "Vitalidade", fields: [
           bcfField,
-          { id: "dating_out", label: "Idade gestacional", type: "note", compute: "dating", cols: 3 },
         ],
       },
       {

@@ -72,6 +72,32 @@ const ft = C.computeFirstTri({ crl: 60, tn: 3.6, idade_materna: 38 });
 check("TN 3.6mm aumentada", ft.ntAumentada === true, "p" + Math.round(ft.ntPct));
 check("risco idade 38a ~1:117", approx(ft.riscoIdadeT21, 117, 5), "1:" + ft.riscoIdadeT21);
 
+console.log("\n== Datação avançada ==");
+// USG anterior: 20s0d em 2026-05-01, exame 2026-07-16 (76 dias depois) → ~30s6d
+const dPrev = C.computeDating({ prev_data: "2026-05-01", prev_ig_sem: 20, prev_ig_dias: 0, exam_data: "2026-07-16" });
+check("USG anterior projeta IG (~30-31s)", approx(dPrev.bestGaDays, 216, 2), R.formatGaDays(dPrev.bestGaDays) + " por " + dPrev.best.label);
+check("USG anterior é a melhor IG automática", dPrev.best.key === "previa", dPrev.best.key);
+// IG informada pela mãe
+const dMae = C.computeDating({ ig_mae_sem: 28, ig_mae_dias: 3, exam_data: "2026-07-16" });
+check("IG informada pela mãe (28s3d)", dMae.bestGaDays === 199, R.formatGaDays(dMae.bestGaDays));
+// seletor de referência: DUM presente + biometria, escolhe 'bio'
+const dRef = C.computeDating({ dum: "2026-01-01", bpd: 82, hc: 292, ac: 285, fl: 62, exam_data: "2026-07-16", ga_ref: "bio" });
+check("ga_ref='bio' comanda a IG", dRef.override === "bio" && dRef.best.key === "bio", dRef.best.key + " override=" + dRef.override);
+// ganho ponderal intervalar
+const igw = C.intervalGrowth({ previa: { pfe: 1500, delta: 20, date: new Date("2026-06-26") } }, 1900);
+check("ganho ponderal ~20 g/dia", approx(igw.perDay, 20, 0.1), igw.perDay + " g/dia");
+
+console.log("\n== Relações biométricas ==");
+const r32 = C.computeRatios({ bpd: 82, dof: 102, hc: 292, ac: 285, fl: 62 }, 32);
+const byK = (k) => r32.find((x) => x.key === k);
+check("CF/CA normal (~21.7%)", byK("flac").status === "ok", byK("flac").value.toFixed(1) + "%");
+check("CF/DBP normal (~75%)", byK("flbpd").status === "ok", byK("flbpd").value.toFixed(0) + "%");
+check("Índice cefálico (DBP/DOF) calculado", byK("ic") != null && approx(byK("ic").value, 80, 1), byK("ic").value.toFixed(0) + "%");
+check("CC/CA avaliada por IG", byK("hcac").status === "ok" || byK("hcac").status === "alto" || byK("hcac").status === "baixo", byK("hcac").value.toFixed(2));
+// índice cefálico anormal (dolicocefalia): DBP baixo p/ DOF alto
+const rIc = C.computeRatios({ bpd: 70, dof: 105 }, 22);
+check("dolicocefalia (IC<70) sinalizada", rIc.find((x) => x.key === "ic").status === "baixo", rIc.find((x) => x.key === "ic").value.toFixed(0) + "%");
+
 console.log("\n== Geração de laudo (obstétrica) ==");
 const rep = generateReport("obstetrica", {
   pac_nome: "Teste", exam_data: "2026-07-16", dum: "2025-12-20",

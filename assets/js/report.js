@@ -82,26 +82,41 @@ function datingText(ctx) {
     `Idade gestacional estimada em ${R.formatGaDays(d.bestGaDays)} pela ${labelLower(d.best.label)}` +
     (d.edd ? `, com data provável do parto em ${fmtDate(d.edd)}.` : ".")
   );
+  if (d.previa && d.best.key === "previa") {
+    parts.push(`Datação ancorada no ultrassom anterior de ${fmtDate(d.previa.date)} (${R.formatGaDays(d.previa.prevIg)} naquele exame).`);
+  }
   if (d.agreement) {
     const a = d.agreement;
     parts.push(
       a.concordante
-        ? `Há concordância entre a biometria/CCN e a idade menstrual (diferença de ${a.diffDays} dia(s)).`
+        ? `Há concordância entre a idade ultrassonográfica e a idade menstrual (diferença de ${a.diffDays} dia(s)).`
         : `Observa-se discordância entre a idade menstrual e a ultrassonográfica (${a.diffDays} dias, acima da tolerância de ${a.tol} dias) — sugere-se considerar a datação ultrassonográfica.`
     );
   }
+  // fontes alternativas informadas
+  const extras = d.sources.filter((x) => x.key !== d.best.key)
+    .map((x) => `${x.label} ${R.formatGaDays(x.gaDays)}`);
+  if (extras.length) parts.push(`Outras estimativas: ${extras.join("; ")}.`);
   return parts.join(" ");
 }
-const labelLower = (l) => ({ CCN: "medida do comprimento cabeça-nádega (CCN)", DUM: "data da última menstruação (DUM)", Biometria: "biometria fetal" }[l] || l);
+const labelLower = (l) => ({
+  CCN: "medida do comprimento cabeça-nádega (CCN)",
+  DUM: "data da última menstruação (DUM)",
+  Biometria: "biometria fetal atual",
+  "USG anterior": "datação de ultrassom anterior",
+  "Informada pela mãe": "idade gestacional referida pela paciente",
+}[l] || l);
 
-function biometryText(ctx, flags, silentNormalConcl = false) {
-  const { s, gaW, prefs } = ctx;
+function biometryText(ctx, flags) {
+  const { s, gaW, prefs, dating } = ctx;
   const bio = C.computeBiometry(s, gaW, prefs);
   if (!bio) return "";
   const m = bio.meas;
+  const dof = C.helpers.num(s.dof);
   const parts = [];
   const bl = [];
   if (m.bpd) bl.push(`DBP ${nf(m.bpd, 0)} mm`);
+  if (dof) bl.push(`DOF ${nf(dof, 0)} mm`);
   if (m.hc) bl.push(`CC ${nf(m.hc, 0)} mm`);
   if (m.ac) bl.push(`CA ${nf(m.ac, 0)} mm`);
   if (m.fl) bl.push(`CF ${nf(m.fl, 0)} mm`);
@@ -110,9 +125,10 @@ function biometryText(ctx, flags, silentNormalConcl = false) {
     let w = `Peso fetal estimado de ${bio.efw.grams} g (${bio.efw.label})`;
     if (bio.efwPct) {
       const p = pctTxt(bio.efwPct.percentile);
+      const ref = dating.override ? ` (referência de IG: ${dating.best.label})` : "";
       w += `, correspondente ao ${p}`;
       if (bio.growth) {
-        w += ` para a idade gestacional (${bio.growth.tag}).`;
+        w += ` para a idade gestacional${ref} — ${bio.growth.tag}.`;
         if (bio.growth.cls !== "ok") {
           flags.push(
             bio.growth.cls === "grave"
@@ -120,15 +136,28 @@ function biometryText(ctx, flags, silentNormalConcl = false) {
               : `PFE no limite (${bio.growth.tag})`
           );
         }
-      } else w += ".";
+      } else w += `${ref}.`;
     } else w += ".";
     parts.push(w);
   }
-  if (bio.hcac || bio.flac) {
-    const rel = [];
-    if (bio.hcac) rel.push(`CC/CA ${nf(bio.hcac, 2)}`);
-    if (bio.flac) rel.push(`CF/CA ${nf(bio.flac, 0)}%`);
-    parts.push(`Relações biométricas: ${rel.join(", ")}.`);
+  // Ganho ponderal desde o exame anterior
+  const ig = C.intervalGrowth(dating, bio.efw ? bio.efw.grams : null);
+  if (ig) {
+    parts.push(`Ganho ponderal desde o exame anterior (${fmtDate(ig.from)}): ${ig.gain >= 0 ? "+" : ""}${ig.gain} g em ${ig.days} dias (≈ ${nf(ig.perDay, 0)} g/dia).`);
+    if (ig.perDay < 5 && ig.days >= 10) flags.push("baixo ganho ponderal no intervalo");
+  }
+  // Relações biométricas com normalidade
+  const ratios = C.computeRatios(s, gaW);
+  if (ratios) {
+    const seg = ratios.map((r) => {
+      const val = r.unit === "%" ? `${nf(r.value, 0)}%` : nf(r.value, 2);
+      const st = r.status === "ok" ? "normal" : r.status === "alto" ? "acima do esperado" : r.status === "baixo" ? "abaixo do esperado" : null;
+      if (r.status === "alto" || r.status === "baixo") flags.push(`${r.label} ${st} (${val})`);
+      return st ? `${r.label} ${val} (${st})` : `${r.label} ${val}`;
+    });
+    parts.push(`Relações biométricas: ${seg.join("; ")}.`);
+    const icAlt = ratios.find((r) => r.key === "ic" && r.status !== "ok" && r.status !== "na");
+    if (icAlt) parts.push("Índice cefálico alterado — o DBP pode ser menos confiável para a datação; priorizar CC.");
   }
   return parts.join(" ");
 }
@@ -155,9 +184,11 @@ function placentaText(ctx, flags) {
   const parts = [];
   let base = "Placenta";
   if (p.local) base += ` de localização ${p.local}`;
+  if (p.ecotextura) base += `, de ecotextura ${p.ecotextura}`;
   if (p.grau) base += `, grau ${p.grau} de Grannum`;
   base += ".";
   parts.push(base);
+  if (p.ecotextura === "heterogênea") flags.push("placenta heterogênea");
   if (p.distOCI != null) {
     if (p.previa) { parts.push("Placenta prévia (recobre o orifício interno do colo)."); flags.push("placenta prévia"); }
     else if (p.baixa) { parts.push(`Inserção placentária baixa, a ${nf(p.distOCI, 0)} mm do orifício interno.`); flags.push("placenta baixa"); }

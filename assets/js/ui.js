@@ -152,8 +152,9 @@ function chip(txt, cls = "neutro") { return `<span class="chip ${cls}">${txt}</s
 function computeNoteHtml(key, s, dating, gaW) {
   switch (key) {
     case "dating": {
-      if (!dating.best) return `<span class="k">Informe DUM, CCN ou biometria para estimar a idade gestacional.</span>`;
+      if (!dating.best) return `<span class="k">Informe DUM, IG (mãe), USG anterior, CCN ou biometria.</span>`;
       let h = `<span class="k">IG:</span> ${chip(R.formatGaDays(dating.bestGaDays))} <span class="k">por ${dating.best.label}</span>`;
+      if (dating.override) h += ` ${chip("referência escolhida", "neutro")}`;
       if (dating.edd) h += ` · <span class="k">DPP:</span> ${fmtDate(dating.edd)}`;
       if (dating.agreement) {
         h += dating.agreement.concordante
@@ -166,6 +167,15 @@ function computeNoteHtml(key, s, dating, gaW) {
         h += `<br><span class="k" style="font-size:11px">${others}</span>`;
       }
       return h;
+    }
+    case "ratios": {
+      const rs = C.computeRatios(s, gaW);
+      if (!rs) return `<span class="k">Preencha as biometrias (e DOF para o índice cefálico).</span>`;
+      return rs.map((r) => {
+        const cls = r.status === "ok" ? "ok" : r.status === "na" ? "neutro" : "alerta";
+        const val = r.unit === "%" ? `${Math.round(r.value)}%` : r.value.toFixed(2);
+        return `<span class="k">${r.label}:</span> ${chip(val, cls)}`;
+      }).join(" ");
     }
     case "efw":
     case "efwB": {

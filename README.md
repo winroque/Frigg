@@ -23,11 +23,19 @@ peso fetal estimado, percentis, Doppler, líquido amniótico, etc.).
 
 ## Recursos
 
-- **Cálculos ao vivo**: idade gestacional (DUM, CCN, biometria) com regra da
-  "melhor IG" e concordância US × DUM; peso fetal estimado e percentil;
-  classificação PIG/AIG/GIG; ILA/maior bolsão; índices Doppler com percentis.
+- **Cálculos ao vivo**: idade gestacional por **DUM, CCN, biometria, IG informada
+  pela mãe e datação por ultrassom anterior** (trava a IG de um exame prévio e projeta
+  para hoje), com regra da "melhor IG", **seletor de IG de referência** (comanda o laudo
+  e os percentis) e concordância US × DUM; peso fetal estimado e percentil;
+  classificação PIG/AIG/GIG; **ganho ponderal no intervalo**; ILA/maior bolsão;
+  índices Doppler com percentis.
+- **Biometria**: DBP, **DOF**, CC, CA, CF (+ úmero, cerebelo) e **relações biométricas
+  avaliadas** — CC/CA (por IG), CF/CA, CF/DBP e **índice cefálico** (DBP/DOF), cada uma
+  com faixa de normalidade e status.
 - **Referências selecionáveis** para o percentil de peso: **Hadlock 1991** e
   **Intergrowth-21st**. Fórmula de PFE selecionável (Hadlock 1–4 param. / Intergrowth).
+- **Placenta**: localização, grau de Grannum **ou** apenas ecotextura
+  (homogênea/heterogênea), distância ao orifício interno, cordão.
 - **Exportar PDF / imprimir** com layout profissional A4 (botão *Imprimir / PDF* →
   "Salvar como PDF" do navegador).
 - **Salvamento offline** (localStorage): dados do exame, preferências e

@@ -16,6 +16,12 @@ const parseDate = (v) => {
   const d = v instanceof Date ? v : new Date(v + "T00:00:00");
   return isNaN(d) ? null : d;
 };
+// semanas + dias → dias totais
+const igWD = (sem, dias) => {
+  const s = num(sem);
+  if (s == null) return null;
+  return Math.round(s * 7 + (num(dias) || 0));
+};
 
 // Data do exame (ou hoje)
 export function examDate(s) {
@@ -56,22 +62,52 @@ export function computeDating(s) {
     out.sources.push({ key: "bio", label: "Biometria", gaDays, edd: R.eddFromGa(gaDays, exam) });
   }
 
-  // Regra da melhor IG: CCN (1º tri) > DUM confiável ≈ biometria
-  // Escolhe CCN se presente; senão DUM confiável; senão biometria; senão DUM.
-  let best = null;
+  // 4) Exame anterior — datação travada de um USG prévio, projetada para hoje
+  const prevDate = parseDate(s.prev_data);
+  const prevIg = igWD(s.prev_ig_sem, s.prev_ig_dias);
+  if (prevDate && prevIg != null) {
+    const delta = R.daysBetween(prevDate, exam);
+    const gaDays = prevIg + delta;
+    if (gaDays > 0 && gaDays < 320) {
+      out.previa = { date: prevDate, prevIg, delta, gaDays, pfe: num(s.prev_pfe) };
+      out.sources.push({ key: "previa", label: "USG anterior", gaDays, edd: R.eddFromGa(prevIg, prevDate) });
+    }
+  }
+
+  // 5) IG informada pela mãe (referida) — na data do exame
+  const igMae = igWD(s.ig_mae_sem, s.ig_mae_dias);
+  if (igMae != null && igMae > 0 && igMae < 320) {
+    out.informada = { gaDays: igMae };
+    out.sources.push({ key: "informada", label: "Informada pela mãe", gaDays: igMae, edd: R.eddFromGa(igMae, exam) });
+  }
+
   const byKey = (k) => out.sources.find((x) => x.key === k);
-  if (byKey("crl")) best = byKey("crl");
+
+  // Regra automática da melhor IG:
+  // USG anterior travado > CCN (1º tri) > DUM confiável > biometria > informada > DUM
+  let best = null;
+  if (byKey("previa")) best = byKey("previa");
+  else if (byKey("crl")) best = byKey("crl");
   else if (out.dum && out.dum.confiavel) best = byKey("dum");
   else if (byKey("bio")) best = byKey("bio");
+  else if (byKey("informada")) best = byKey("informada");
   else if (byKey("dum")) best = byKey("dum");
+  out.autoBest = best;
+
+  // Override pelo usuário — "IG de referência" comanda laudo e percentis
+  const ref = s.ga_ref;
+  if (ref && ref !== "auto" && byKey(ref)) {
+    best = byKey(ref);
+    out.override = ref;
+  }
   out.best = best;
 
   // Concordância US × DUM (limiares ISUOG/ACOG)
-  if (out.dum && (byKey("crl") || byKey("bio"))) {
-    const us = byKey("crl") || byKey("bio");
+  if (out.dum && (byKey("crl") || byKey("bio") || byKey("previa"))) {
+    const us = byKey("crl") || byKey("previa") || byKey("bio");
     const diff = Math.abs(us.gaDays - out.dum.gaDays);
     const wk = out.dum.gaDays / 7;
-    // tolerância: <9s: 5d; 9–14s: 7d; 14–16s: 7d; 16–22s: 10d; 22–28s: 14d; >28s: 21d
+    // tolerância: <9s: 5d; 9–16s: 7d; 16–22s: 10d; 22–28s: 14d; >28s: 21d
     let tol = 5;
     if (wk >= 9 && wk < 16) tol = 7;
     else if (wk >= 16 && wk < 22) tol = 10;
@@ -105,10 +141,47 @@ export function computeBiometry(s, gaWeeks, prefs) {
       if (out.efwPct) out.growth = R.classifyGrowth(out.efwPct.percentile);
     }
   }
-  // Relações
-  if (meas.hc && meas.ac) out.hcac = meas.hc / meas.ac;
-  if (meas.fl && meas.ac) out.flac = (meas.fl / meas.ac) * 100; // %
   return out;
+}
+
+/* ---------- Relações biométricas (com avaliação de normalidade) ----------
+ * CC/CA: média por IG (Campbell & Thoms 1977), faixa ~ média ± 0,10.
+ * CF/CA×100: normal 20–24% (Hadlock 1983), independente da IG após ~21s.
+ * CF/DBP×100: normal 71–87% (Hohler & Quetel 1981).
+ * Índice cefálico (DBP/DOF×100): normal 70–86% (< 70 dolicocefalia,
+ *   > 86 braquicefalia; DBP torna-se pouco confiável para datar).
+ */
+const HCAC_MEAN = {
+  14: 1.23, 16: 1.20, 18: 1.17, 20: 1.14, 22: 1.12, 24: 1.09, 26: 1.07,
+  28: 1.05, 30: 1.03, 32: 1.02, 34: 1.00, 36: 0.99, 38: 0.98, 40: 0.97,
+};
+export function computeRatios(s, gaWeeks) {
+  const bpd = num(s.bpd), hc = num(s.hc), ac = num(s.ac), fl = num(s.fl), dof = num(s.dof);
+  const out = [];
+  const add = (key, label, value, unit, low, high, hint) => {
+    let status = "na";
+    if (low != null && high != null) status = value < low ? "baixo" : value > high ? "alto" : "ok";
+    out.push({ key, label, value, unit, low, high, status, hint });
+  };
+  if (hc != null && ac != null && ac > 0) {
+    const r = hc / ac;
+    if (gaWeeks) {
+      const m = R.interpTable(HCAC_MEAN, gaWeeks);
+      add("hcac", "CC/CA", r, "", m - 0.10, m + 0.10, `esperado ~${m.toFixed(2)}`);
+    } else add("hcac", "CC/CA", r, "", null, null, "informe a IG para avaliar");
+  }
+  if (fl != null && ac != null && ac > 0) add("flac", "CF/CA", (fl / ac) * 100, "%", 20, 24, "normal 20–24%");
+  if (fl != null && bpd != null && bpd > 0) add("flbpd", "CF/DBP", (fl / bpd) * 100, "%", 71, 87, "normal 71–87%");
+  if (bpd != null && dof != null && dof > 0) add("ic", "Índice cefálico", (bpd / dof) * 100, "%", 70, 86, "normal 70–86%");
+  return out.length ? out : null;
+}
+
+// Ganho ponderal desde o exame anterior (usa PFE anterior informado)
+export function intervalGrowth(dating, efwGrams) {
+  const p = dating && dating.previa;
+  if (!p || p.pfe == null || efwGrams == null || p.delta <= 0) return null;
+  const gain = efwGrams - p.pfe;
+  return { days: p.delta, gain, perDay: gain / p.delta, from: p.date, prev: p.pfe };
 }
 
 /* ---------- Líquido amniótico ---------- */
@@ -237,6 +310,7 @@ export function computeCervix(s) {
 export function computePlacenta(s) {
   const out = {};
   if (s.placenta_local) out.local = s.placenta_local;
+  if (s.placenta_ecotextura) out.ecotextura = s.placenta_ecotextura;
   if (s.placenta_grau) out.grau = s.placenta_grau;
   const dist = num(s.placenta_dist_oci);
   if (dist != null) {
