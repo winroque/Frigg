@@ -57,12 +57,12 @@ peso fetal estimado, percentis, Doppler, líquido amniótico, etc.).
 
 ## Como publicar (GitHub Pages)
 
-Este repositório já inclui um workflow de deploy
-(`.github/workflows/deploy.yml`). Para ativar:
+O site é estático puro na raiz do repositório (com `.nojekyll`), então a
+forma mais simples de publicar é o modo **"Deploy from a branch"**:
 
-1. **Settings ▸ Pages ▸ Source** → selecione **GitHub Actions**.
-2. Faça push na branch `main` (o workflow publica automaticamente).
-3. O link ficará em: `https://<seu-usuário>.github.io/Frigg/`.
+1. **Settings ▸ Pages ▸ Build and deployment ▸ Source** → **Deploy from a branch**.
+2. Em **Branch**, selecione **`main`** e a pasta **`/ (root)`**; clique **Save**.
+3. Em ~1 minuto o site fica no ar em: `https://<seu-usuário>.github.io/Frigg/`.
 
 Como é um site estático puro, você também pode simplesmente abrir o
 `index.html` localmente no navegador.
