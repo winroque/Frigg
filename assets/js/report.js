@@ -277,16 +277,18 @@ function buildObstetrica(ctx, push, flags) {
   push("Idade gestacional", datingText(ctx));
   // Situação fetal
   const sit = [];
-  const nf_ = s.num_fetos && s.num_fetos !== "único" ? `Gestação com ${s.num_fetos} fetos.` : "Gestação única.";
-  sit.push(nf_ + " Feto vivo.");
-  if (s.situacao || s.apresentacao) {
-    sit.push(`Situação ${s.situacao || "longitudinal"}, apresentação ${s.apresentacao || "cefálica"}${s.dorso ? `, dorso ${s.dorso}` : ""}.`);
-  }
-  if (s.bcf) sit.push(`Batimentos cardíacos fetais presentes e rítmicos, com frequência de ${nf(s.bcf, 0)} bpm.`);
-  else sit.push(tpl(ctx.templates, "bcf_normal"));
-  if (s.mov_fetais === "ausentes") { sit.push("Movimentos fetais não observados durante o exame."); }
+  sit.push(s.num_fetos && s.num_fetos !== "único" ? `Gestação múltipla (${s.num_fetos} fetos).` : "Gestação única.");
+  const pos = [];
+  if (s.situacao) pos.push(`situação ${s.situacao}`);
+  if (s.apresentacao) pos.push(`apresentação ${s.apresentacao}`);
+  if (s.dorso) pos.push(`dorso ${s.dorso}`);
+  if (pos.length) sit.push(cap(pos.join(", ")) + ".");
+  sit.push(s.mov_fetais === "ausentes"
+    ? "Feto vivo; movimentos fetais não observados durante o exame."
+    : "Feto vivo, com movimentação ativa.");
+  sit.push(s.bcf ? `Frequência cardíaca fetal: ${nf(s.bcf, 0)} bpm.` : "Batimentos cardíacos fetais presentes, rítmicos.");
   if (s.sexo && s.sexo !== "não avaliado") sit.push(`Sexo fetal: ${s.sexo}.`);
-  push("Situação e vitalidade fetal", sit.join(" "));
+  push("Situação e vitalidade fetal", sit.join("\n"));
   push("Parâmetros biométricos", biometryText(ctx, flags));
   const idx = ratiosText(ctx, flags);
   if (idx) push("Índices biométricos", idx);
@@ -410,10 +412,13 @@ function descolamentoText(ctx, flags) {
 function buildMorfo(ctx, push, flags) {
   const { s, templates } = ctx;
   push("Idade gestacional", datingText(ctx));
-  const sit = [`Gestação ${s.num_fetos && s.num_fetos !== "único" ? "múltipla" : "única"}, feto vivo em apresentação ${s.apresentacao || "cefálica"}.`];
-  if (s.bcf) sit.push(`FCF ${nf(s.bcf, 0)} bpm.`);
-  if (s.sexo && s.sexo !== "não avaliado") sit.push(`Sexo fetal aparente: ${s.sexo}.`);
-  push("Situação fetal", sit.join(" "));
+  const sit = [];
+  sit.push(s.num_fetos && s.num_fetos !== "único" ? "Gestação múltipla." : "Gestação única.");
+  if (s.apresentacao) sit.push(`Apresentação ${s.apresentacao}.`);
+  sit.push("Feto vivo, com movimentação ativa.");
+  if (s.bcf) sit.push(`Frequência cardíaca fetal: ${nf(s.bcf, 0)} bpm.`);
+  if (s.sexo && s.sexo !== "não avaliado") sit.push(`Sexo fetal: ${s.sexo}.`);
+  push("Situação fetal", sit.join("\n"));
   push("Parâmetros biométricos", biometryText(ctx, flags));
   const idxM = ratiosText(ctx, flags);
   if (idxM) push("Índices biométricos", idxM);
