@@ -120,6 +120,12 @@ export function computeDating(s) {
     out.bestGaDays = best.gaDays;
     out.bestGaWeeks = best.gaDays / 7;
     out.edd = best.edd;
+    // DUM presumida: quando a IG não vem de uma DUM informada, retrocede-se a
+    // "última menstruação" a partir da idade gestacional adotada.
+    if (best.key !== "dum") {
+      out.presumida = true;
+      out.presumedLMP = new Date(exam.getTime() - best.gaDays * R.MS_DAY);
+    }
   }
   return out;
 }

@@ -69,6 +69,7 @@ function buildMeta(s, dating) {
   if (s.indicacao) rows.push(["Indicação", s.indicacao]);
   if (dating.bestGaDays != null)
     rows.push(["Idade gestacional", `${R.formatGaDays(dating.bestGaDays)} (${dating.best.label})`]);
+  if (dating.presumida && dating.presumedLMP) rows.push(["DUM presumida", fmtDate(dating.presumedLMP)]);
   if (dating.edd) rows.push(["DPP", fmtDate(dating.edd)]);
   return rows;
 }
@@ -84,6 +85,9 @@ function datingText(ctx) {
   );
   if (d.previa && d.best.key === "previa") {
     parts.push(`Datação ancorada no ultrassom anterior de ${fmtDate(d.previa.date)} (${R.formatGaDays(d.previa.prevIg)} naquele exame).`);
+  }
+  if (d.presumida && d.presumedLMP) {
+    parts.push(`Data da última menstruação presumida em ${fmtDate(d.presumedLMP)}.`);
   }
   if (d.agreement) {
     const a = d.agreement;

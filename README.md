@@ -36,8 +36,12 @@ peso fetal estimado, percentis, Doppler, líquido amniótico, etc.).
   **Intergrowth-21st**. Fórmula de PFE selecionável (Hadlock 1–4 param. / Intergrowth).
 - **Placenta**: localização, grau de Grannum **ou** apenas ecotextura
   (homogênea/heterogênea), distância ao orifício interno, cordão.
+- **DUM presumida**: quando a IG vem de ultrassom anterior ou de informação da mãe
+  (não de uma DUM real), o laudo calcula e exibe a data da última menstruação presumida.
 - **Exportar PDF / imprimir** com layout profissional A4 (botão *Imprimir / PDF* →
-  "Salvar como PDF" do navegador).
+  "Salvar como PDF" do navegador). Botões **Copiar laudo** e **Copiar simples** — este
+  último gera um texto enxuto (títulos em negrito + corpo simples) para colar em outros
+  sistemas, com o negrito preservado (rich text) e fallback em texto puro.
 - **Salvamento offline** (localStorage): dados do exame, preferências e
   **frases-padrão (templates) editáveis** persistem no navegador.
 - **Laudo editável** antes de exportar; botão *Copiar laudo*.

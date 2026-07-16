@@ -6,8 +6,8 @@
   <title>Frigg — Gerador de Laudos de Obstetrícia</title>
   <meta name="description" content="Gerador de laudos de ultrassonografia obstétrica com calculadoras (idade gestacional, peso fetal, percentis, Doppler). Ferramenta de apoio, 100% offline." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤰</text></svg>" />
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260716d" />
-  <link rel="stylesheet" href="assets/css/print.css?v=20260716d" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260716e" />
+  <link rel="stylesheet" href="assets/css/print.css?v=20260716e" />
 </head>
 <body>
   <header class="topbar no-print">
@@ -30,6 +30,7 @@
         <div class="report-actions no-print">
           <button class="btn primary" id="btn-print">🖨️ Imprimir / PDF</button>
           <button class="btn" id="btn-copy">📋 Copiar laudo</button>
+          <button class="btn" id="btn-copy-simple" title="Copia com títulos em negrito e corpo simples, para colar em outros sistemas">📄 Copiar simples</button>
           <span class="spacer" style="flex:1"></span>
           <span style="font-size:11px;color:var(--muted);align-self:center">Laudo editável ↓</span>
         </div>
@@ -41,7 +42,7 @@
           baseiam-se em referências publicadas (Hadlock, Robinson, Arduini &amp; Rizzo, Mari, Gómez,
           Moore &amp; Cayle, FMF) e não substituem o julgamento clínico nem software de rastreio
           certificado. Confira sempre os valores. Nenhum dado é enviado à internet.
-          <span style="opacity:.7">· versão 2026-07-16d</span>
+          <span style="opacity:.7">· versão 2026-07-16e</span>
         </div>
       </div>
     </section>
@@ -60,6 +61,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script type="module" src="assets/js/app.js?v=20260716d"></script>
+  <script type="module" src="assets/js/app.js?v=20260716e"></script>
 </body>
 </html>

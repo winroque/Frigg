@@ -155,6 +155,7 @@ function computeNoteHtml(key, s, dating, gaW) {
       if (!dating.best) return `<span class="k">Informe DUM, IG (mãe), USG anterior, CCN ou biometria.</span>`;
       let h = `<span class="k">IG:</span> ${chip(R.formatGaDays(dating.bestGaDays))} <span class="k">por ${dating.best.label}</span>`;
       if (dating.override) h += ` ${chip("referência escolhida", "neutro")}`;
+      if (dating.presumida && dating.presumedLMP) h += ` · <span class="k">DUM presumida:</span> ${fmtDate(dating.presumedLMP)}`;
       if (dating.edd) h += ` · <span class="k">DPP:</span> ${fmtDate(dating.edd)}`;
       if (dating.agreement) {
         h += dating.agreement.concordante

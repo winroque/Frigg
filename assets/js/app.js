@@ -108,6 +108,7 @@ function bindActions() {
       toast("Laudo copiado");
     }
   });
+  $("#btn-copy-simple").addEventListener("click", copySimplified);
   $("#btn-theme").addEventListener("click", () => {
     setPref("theme", state.prefs.theme === "dark" ? "light" : "dark");
   });
@@ -117,6 +118,67 @@ function bindActions() {
   $("#btn-settings").addEventListener("click", openSettings);
   $("#settings-close").addEventListener("click", closeSettings);
   $("#settings-back").addEventListener("click", (e) => { if (e.target.id === "settings-back") closeSettings(); });
+}
+
+// Formato simplificado: título principal + títulos de seção em negrito + corpo
+// simples. Copia como texto rico (HTML, preserva negrito) com fallback texto puro.
+function buildSimplified() {
+  const rep = generateReport(state.exam, state.values, state.prefs, effectiveTemplates());
+  const H = [], T = [];
+  const line = (h, t) => { H.push(h); T.push(t == null ? h.replace(/<[^>]+>/g, "") : t); };
+  const blank = () => { H.push("<p></p>"); T.push(""); };
+
+  if (state.prefs.clinicaHeader) {
+    for (const l of state.prefs.clinicaHeader.split(/\n+/)) line(`<p style="text-align:center">${esc(l)}</p>`, l);
+  }
+  line(`<p style="text-align:center"><b>${esc(rep.title)}</b></p>`, rep.title);
+  blank();
+  for (const [k, v] of rep.meta) line(`<p>${esc(k)}: ${esc(v)}</p>`, `${k}: ${v}`);
+  if (rep.meta.length) blank();
+
+  for (const sec of rep.sections) {
+    line(`<p><b>${esc(sec.title)}:</b></p>`, `${sec.title}:`);
+    for (const para of sec.text.split(/\n+/)) line(`<p>${esc(para)}</p>`, para);
+    blank();
+  }
+  if (rep.conclusion) {
+    line(`<p><b>CONCLUSÃO:</b></p>`, "CONCLUSÃO:");
+    for (const para of rep.conclusion.split(/\n+/)) line(`<p>${esc(para)}</p>`, para);
+  }
+  const nome = state.values.medico, crm = state.values.crm;
+  if (nome) { blank(); line(`<p>${esc(nome)}${crm ? ` — CRM ${esc(crm)}` : ""}</p>`, `${nome}${crm ? ` — CRM ${crm}` : ""}`); }
+
+  return { html: H.join(""), text: T.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+}
+
+async function copySimplified() {
+  const { html, text } = buildSimplified();
+  try {
+    const item = new ClipboardItem({
+      "text/html": new Blob([html], { type: "text/html" }),
+      "text/plain": new Blob([text], { type: "text/plain" }),
+    });
+    await navigator.clipboard.write([item]);
+    toast("Laudo simples copiado (negrito preservado)");
+  } catch {
+    // fallback: seleciona um elemento oculto com o HTML e usa execCommand
+    try {
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      div.setAttribute("style", "position:fixed;left:-9999px;top:0;white-space:pre-wrap;");
+      document.body.appendChild(div);
+      const range = document.createRange();
+      range.selectNodeContents(div);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      document.execCommand("copy");
+      sel.removeAllRanges(); div.remove();
+      toast("Laudo simples copiado");
+    } catch {
+      await navigator.clipboard.writeText(text).catch(() => {});
+      toast("Laudo simples copiado (texto)");
+    }
+  }
 }
 
 function laudoPlainText() {

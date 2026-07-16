@@ -87,6 +87,16 @@ check("ga_ref='bio' comanda a IG", dRef.override === "bio" && dRef.best.key === 
 const igw = C.intervalGrowth({ previa: { pfe: 1500, delta: 20, date: new Date("2026-06-26") } }, 1900);
 check("ganho ponderal ~20 g/dia", approx(igw.perDay, 20, 0.1), igw.perDay + " g/dia");
 
+console.log("\n== DUM presumida ==");
+const dPres = C.computeDating({ ig_mae_sem: 28, ig_mae_dias: 3, exam_data: "2026-07-16" });
+check("IG por mãe gera DUM presumida", dPres.presumida === true && dPres.presumedLMP instanceof Date, dPres.presumedLMP?.toISOString().slice(0, 10));
+// presumedLMP = exame - 199 dias
+const espLMP = new Date(new Date("2026-07-16T00:00:00").getTime() - 199 * 86400000).toISOString().slice(0, 10);
+check("DUM presumida = exame − IG", dPres.presumedLMP.toISOString().slice(0, 10) === espLMP, dPres.presumedLMP.toISOString().slice(0, 10));
+// DUM real não é presumida
+const dReal = C.computeDating({ dum: "2026-01-01", exam_data: "2026-07-16", dum_confiavel: "confiavel" });
+check("DUM informada não é presumida", !dReal.presumida, "presumida=" + !!dReal.presumida);
+
 console.log("\n== Relações biométricas ==");
 const r32 = C.computeRatios({ bpd: 82, dof: 102, hc: 292, ac: 285, fl: 62 }, 32);
 const byK = (k) => r32.find((x) => x.key === k);
