@@ -23,6 +23,19 @@ const igWD = (sem, dias) => {
   return Math.round(s * 7 + (num(dias) || 0));
 };
 
+/*
+ * Circunferência abdominal efetiva: usa a CA medida diretamente; se ausente e
+ * houver DAP (diâmetro ântero-posterior) e DLL (látero-lateral), calcula pela
+ * fórmula da elipse: CA = π/2 · (DAP + DLL).
+ */
+export function effectiveAC(s) {
+  const ac = num(s.ac);
+  if (ac != null) return ac;
+  const dap = num(s.ca_dap), dll = num(s.ca_dll);
+  if (dap != null && dll != null) return Math.round((Math.PI / 2) * (dap + dll) * 10) / 10;
+  return null;
+}
+
 // Data do exame (ou hoje)
 export function examDate(s) {
   return parseDate(s.exam_data) || new Date();
@@ -54,7 +67,7 @@ export function computeDating(s) {
   }
 
   // 3) Biometria (2º/3º tri)
-  const bio = { bpd: num(s.bpd), hc: num(s.hc), ac: num(s.ac), fl: num(s.fl) };
+  const bio = { bpd: num(s.bpd), hc: num(s.hc), ac: effectiveAC(s), fl: num(s.fl) };
   const gaBio = R.gaFromBiometry(bio);
   if (gaBio && gaBio.composite) {
     const gaDays = Math.round(gaBio.composite * 7);
@@ -132,7 +145,7 @@ export function computeDating(s) {
 
 /* ---------- Biometria & PFE ---------- */
 export function computeBiometry(s, gaWeeks, prefs) {
-  const meas = { bpd: num(s.bpd), hc: num(s.hc), ac: num(s.ac), fl: num(s.fl) };
+  const meas = { bpd: num(s.bpd), hc: num(s.hc), ac: effectiveAC(s), fl: num(s.fl) };
   const hasAny = Object.values(meas).some((v) => v);
   if (!hasAny) return null;
   const out = { meas };
@@ -162,7 +175,7 @@ const HCAC_MEAN = {
   28: 1.05, 30: 1.03, 32: 1.02, 34: 1.00, 36: 0.99, 38: 0.98, 40: 0.97,
 };
 export function computeRatios(s, gaWeeks) {
-  const bpd = num(s.bpd), hc = num(s.hc), ac = num(s.ac), fl = num(s.fl), dof = num(s.dof);
+  const bpd = num(s.bpd), hc = num(s.hc), ac = effectiveAC(s), fl = num(s.fl), dof = num(s.dof);
   const out = [];
   const add = (key, label, value, unit, low, high, hint) => {
     let status = "na";

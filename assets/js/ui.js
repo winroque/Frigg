@@ -182,7 +182,7 @@ function computeNoteHtml(key, s, dating, gaW) {
     case "efwB": {
       const meas = key === "efwB"
         ? { bpd: s.b_bpd, hc: s.b_hc, ac: s.b_ac, fl: s.b_fl }
-        : { bpd: s.bpd, hc: s.hc, ac: s.ac, fl: s.fl };
+        : s; // estado completo → considera DAP/DLL para a CA
       const bio = C.computeBiometry(meas, gaW, state.prefs);
       if (!bio || !bio.efw) return `<span class="k">Preencha as biometrias para calcular o peso fetal estimado.</span>`;
       let h = `<span class="k">PFE:</span> ${chip(bio.efw.grams + " g")} <span class="k">(${bio.efw.label})</span>`;

@@ -97,6 +97,16 @@ check("DUM presumida = exame − IG", dPres.presumedLMP.toISOString().slice(0, 1
 const dReal = C.computeDating({ dum: "2026-01-01", exam_data: "2026-07-16", dum_confiavel: "confiavel" });
 check("DUM informada não é presumida", !dReal.presumida, "presumida=" + !!dReal.presumida);
 
+console.log("\n== CA por DAP e DLL ==");
+check("CA direta tem precedência", C.effectiveAC({ ac: 280, ca_dap: 90, ca_dll: 93 }) === 280, C.effectiveAC({ ac: 280, ca_dap: 90, ca_dll: 93 }));
+const acDer = C.effectiveAC({ ca_dap: 90, ca_dll: 93 });
+check("CA calculada π/2·(DAP+DLL) ≈ 287,5 mm", approx(acDer, 287.5, 0.1), acDer + " mm");
+// PFE usa a CA derivada
+const bioDer = C.computeBiometry({ bpd: 82, hc: 292, ca_dap: 90, ca_dll: 93, fl: 62 }, 32, {});
+check("PFE calculado com CA derivada", bioDer.efw && bioDer.efw.grams > 1500, bioDer.efw ? bioDer.efw.grams + " g" : "—");
+const repDer = generateReport("obstetrica", { exam_data: "2026-07-16", dum: "2025-12-15", bpd: 82, hc: 292, ca_dap: 90, ca_dll: 93, fl: 62 }, {}, {});
+check("laudo anota CA calculada de DAP×DLL", repDer.sections.some((x) => /calculada de DAP/.test(x.text)), "ok");
+
 console.log("\n== Relações biométricas ==");
 const r32 = C.computeRatios({ bpd: 82, dof: 102, hc: 292, ac: 285, fl: 62 }, 32);
 const byK = (k) => r32.find((x) => x.key === k);

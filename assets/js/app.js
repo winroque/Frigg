@@ -113,7 +113,12 @@ function bindActions() {
     setPref("theme", state.prefs.theme === "dark" ? "light" : "dark");
   });
   $("#btn-clear").addEventListener("click", () => {
-    if (confirm("Limpar todos os campos preenchidos?")) { clearValues(); toast("Campos limpos"); }
+    if (confirm("Limpar todos os campos preenchidos?")) {
+      clearValues();
+      renderForm($("#forms")); // reconstrói os campos (senão o DOM mantém os valores)
+      renderLaudo();
+      toast("Campos limpos");
+    }
   });
   $("#btn-settings").addEventListener("click", openSettings);
   $("#settings-close").addEventListener("click", closeSettings);
