@@ -144,7 +144,12 @@ function biometryText(ctx, flags) {
   mm("Diâmetro biparietal (DBP)", m.bpd);
   mm("Diâmetro occipitofrontal (DOF)", dof);
   mm("Circunferência cefálica (CC)", m.hc);
-  mm("Circunferência abdominal (CA)", m.ac);
+  // CA: medida direta ou calculada de DAP + DLL
+  if (m.ac != null && m.ac > 0) {
+    const dap = C.helpers.num(s.ca_dap), dll = C.helpers.num(s.ca_dll);
+    const derivada = C.helpers.num(s.ac) == null && dap != null && dll != null;
+    lines.push(`Circunferência abdominal (CA): ${nf(m.ac, 1)} mm${derivada ? ` (calculada de DAP ${nf(dap, 1)} × DLL ${nf(dll, 1)} mm)` : ""}.`);
+  }
   mm("Comprimento femoral (CF)", m.fl);
   mm("Comprimento do úmero", C.helpers.num(s.hl));
   mm("Diâmetro transverso do cerebelo (DTC)", C.helpers.num(s.tcd));
