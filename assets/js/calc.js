@@ -418,4 +418,54 @@ export function twinDiscordance(efw1, efw2) {
   return ((maior - menor) / maior) * 100;
 }
 
+/* =================================================================
+ * US GERAL — volumes e calculadoras (abdome, pelve, tireoide…)
+ * ================================================================= */
+
+// Volume de elipsoide a partir de 3 diâmetros em mm → mL (cm³): π/6·(d1·d2·d3)/1000
+export function ellipsoidVolume(d1, d2, d3) {
+  const a = num(d1), b = num(d2), c = num(d3);
+  if (a == null || b == null || c == null || a <= 0 || b <= 0 || c <= 0) return null;
+  return (Math.PI / 6) * (a / 10) * (b / 10) * (c / 10);
+}
+
+// Próstata: volume (elipsoide) + densidade de PSA
+export function computeProstate(s) {
+  const v = ellipsoidVolume(s.prost_d1, s.prost_d2, s.prost_d3);
+  const psa = num(s.psa);
+  if (v == null && psa == null) return null;
+  const out = { volume: v };
+  if (v != null) out.aumentada = v > 30; // referência aproximada
+  if (psa != null) {
+    out.psa = psa;
+    if (v != null && v > 0) {
+      out.density = psa / v;
+      out.densAlterada = out.density > 0.15; // > 0,15 ng/mL/cm³ = maior suspeição
+    }
+  }
+  return out;
+}
+
+// Bexiga: volume (elipsoide) e resíduo pós-miccional
+export function computeBladder(s) {
+  const v = ellipsoidVolume(s.bexiga_d1, s.bexiga_d2, s.bexiga_d3);
+  const rpm = num(s.rpm);
+  if (v == null && rpm == null) return null;
+  return { volume: v, rpm, rpmAlterado: rpm != null && rpm > 50 };
+}
+
+// Baço: esplenomegalia quando maior eixo > 120 mm
+export function computeSpleen(s) {
+  const eixo = num(s.baco_eixo);
+  if (eixo == null) return null;
+  return { eixo, esplenomegalia: eixo > 120 };
+}
+
+// Aorta abdominal: aneurisma quando calibre ≥ 30 mm; ectasia 25–29 mm
+export function computeAorta(s) {
+  const c = num(s.aorta_calibre);
+  if (c == null) return null;
+  return { calibre: c, aneurisma: c >= 30, ectasia: c >= 25 && c < 30 };
+}
+
 export const helpers = { num, parseDate };

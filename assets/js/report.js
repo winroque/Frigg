@@ -33,8 +33,9 @@ export function generateReport(examId, s, prefs = {}, templates = {}) {
   const sections = [];
   const push = (title, text) => { if (text && text.trim()) sections.push({ title, text: text.trim() }); };
 
+  const isGeneral = examId === "abdome";
   // Cabeçalho (metadados)
-  const meta = buildMeta(s, dating);
+  const meta = isGeneral ? buildMetaGeneral(s) : buildMeta(s, dating);
 
   switch (examId) {
     case "primeiro_tri": buildFirstTri(ctx, push, flags); break;
@@ -42,14 +43,23 @@ export function generateReport(examId, s, prefs = {}, templates = {}) {
     case "gemelar": buildGemelar(ctx, push, flags); break;
     case "cervical": buildCervical(ctx, push, flags); break;
     case "pbf": buildPBF(ctx, push, flags); break;
+    case "abdome": buildAbdome(ctx, push, flags); break;
     default: buildObstetrica(ctx, push, flags);
   }
 
   const conclusion = buildConclusion(examId, ctx, flags);
-  return { title: titleFor(examId), meta, sections, conclusion };
+  return { title: titleFor(examId, s), meta, sections, conclusion };
 }
 
-function titleFor(id) {
+function titleFor(id, s = {}) {
+  if (id === "abdome") {
+    return {
+      total: "ULTRASSONOGRAFIA DE ABDOME TOTAL",
+      superior: "ULTRASSONOGRAFIA DE ABDOME SUPERIOR",
+      rins_vias: "ULTRASSONOGRAFIA DE RINS E VIAS URINÁRIAS",
+      prostata: "ULTRASSONOGRAFIA DE PRÓSTATA (VIA ABDOMINAL)",
+    }[s.abdome_tipo || "total"];
+  }
   return {
     obstetrica: "ULTRASSONOGRAFIA OBSTÉTRICA",
     primeiro_tri: "ULTRASSONOGRAFIA OBSTÉTRICA — 1º TRIMESTRE",
@@ -58,6 +68,17 @@ function titleFor(id) {
     cervical: "ULTRASSONOGRAFIA — MEDIDA DO COLO UTERINO",
     pbf: "PERFIL BIOFÍSICO FETAL",
   }[id] || "ULTRASSONOGRAFIA OBSTÉTRICA";
+}
+
+// Metadados para exames não-obstétricos
+function buildMetaGeneral(s) {
+  const rows = [];
+  if (s.pac_nome) rows.push(["Paciente", s.pac_nome]);
+  const d = [s.pac_idade ? `${s.pac_idade} anos` : null, s.pac_sexo].filter(Boolean).join(" · ");
+  if (d) rows.push(["Dados", d]);
+  rows.push(["Data do exame", fmtDate(C.examDate(s))]);
+  if (s.indicacao) rows.push(["Indicação", s.indicacao]);
+  return rows;
 }
 
 function buildMeta(s, dating) {
@@ -527,6 +548,105 @@ function buildPBF(ctx, push, flags) {
   if (fl) push("Líquido amniótico", fl);
 }
 
+/* ---------- Abdome (total / superior / rins e vias / próstata) ---------- */
+const estLabel = (v) => ({ leve: "grau I (leve)", moderada: "grau II (moderada)", acentuada: "grau III (acentuada)" }[v] || v);
+
+function kidneyText(s, pfx, label, flags) {
+  const num = C.helpers.num;
+  if (s[pfx + "_status"] === "alterado" && s[pfx + "_desc"]) { flags.push(`alteração renal à ${label.includes("direito") ? "direita" : "esquerda"}`); return `${label}: ${s[pfx + "_desc"]}`; }
+  const comp = num(s[pfx + "_comp"]);
+  const dimTxt = comp != null ? (comp < 90 ? "reduzidas" : comp > 120 ? "aumentadas" : "normais") : "normais";
+  let t = `${label} tópico, de dimensões ${dimTxt}${comp != null ? ` (${nf(comp, 0)} mm)` : ""}, com boa diferenciação corticomedular`;
+  const dil = s[pfx + "_dilatacao"];
+  if (dil && dil !== "ausente") { t += `, com dilatação pielocalicinal ${dil}`; flags.push(`dilatação pielocalicinal ${dil}`); }
+  else t += ", sem dilatação pielocalicinal";
+  if (s[pfx + "_calculo"] === "presente") { t += `, com cálculo${num(s[pfx + "_calc_maior"]) ? ` de ${nf(num(s[pfx + "_calc_maior"]), 0)} mm` : ""}`; flags.push("cálculo renal"); }
+  else t += ", sem cálculos";
+  return t + " ou imagens expansivas.";
+}
+
+function buildAbdome(ctx, push, flags) {
+  const { s } = ctx;
+  const num = C.helpers.num;
+  const tipo = s.abdome_tipo || "total";
+  const inc = (...t) => t.includes(tipo);
+  if (s.abd_tecnica) push("Técnica", s.abd_tecnica);
+
+  if (inc("total", "superior")) {
+    if (s.figado_status === "alterado" && s.figado_desc) { push("Fígado", s.figado_desc); flags.push("alteração hepática"); }
+    else {
+      let t = `Fígado de dimensões normais${num(s.figado_lobo_dir) ? ` (lobo direito ${nf(num(s.figado_lobo_dir), 0)} mm)` : ""}, contornos regulares e ecotextura homogênea, sem lesões focais. Veias hepáticas e sistema porta de calibre normal.`;
+      if (s.esteatose && s.esteatose !== "ausente") { t += ` Ecotextura hepática compatível com esteatose ${estLabel(s.esteatose)}.`; flags.push(`esteatose hepática ${estLabel(s.esteatose)}`); }
+      push("Fígado", t);
+    }
+    if (s.vb_status === "alterado" && s.vb_desc) { push("Vesícula e vias biliares", s.vb_desc); flags.push("alteração das vias biliares"); }
+    else {
+      const parts = [];
+      if (s.vb_situacao === "ausente") parts.push("Ausência da vesícula biliar (colecistectomia prévia).");
+      else {
+        let v = `Vesícula biliar ${s.vb_situacao || "normodistendida"}, de paredes finas`;
+        if (s.vb_calculos === "presente") { v += `, contendo cálculo(s)${num(s.vb_calc_maior) ? ` (maior de ${nf(num(s.vb_calc_maior), 0)} mm)` : ""}`; flags.push("colelitíase"); }
+        else v += ", sem cálculos ou lama biliar em seu interior";
+        parts.push(v + ".");
+      }
+      parts.push(`Vias biliares intra e extra-hepáticas não dilatadas${num(s.coledoco) ? ` (colédoco ${nf(num(s.coledoco), 0)} mm)` : ""}.`);
+      push("Vesícula e vias biliares", parts.join(" "));
+    }
+    if (s.panc_status === "alterado" && s.panc_desc) { push("Pâncreas", s.panc_desc); flags.push("alteração pancreática"); }
+    else if (s.panc_status === "prejudicado") push("Pâncreas", "Pâncreas parcialmente avaliado por interposição gasosa; a porção visualizada não apresenta alterações e o ducto de Wirsung não se encontra dilatado.");
+    else push("Pâncreas", `Pâncreas de forma, dimensões e ecotextura normais, com ducto de Wirsung não dilatado${num(s.wirsung) ? ` (${nf(num(s.wirsung), 0)} mm)` : ""}.`);
+
+    if (s.baco_status === "alterado" && s.baco_desc) { push("Baço", s.baco_desc); flags.push("alteração esplênica"); }
+    else {
+      const sp = C.computeSpleen(s);
+      if (sp && sp.esplenomegalia) flags.push("esplenomegalia");
+      push("Baço", `Baço de ${sp && sp.esplenomegalia ? "dimensões aumentadas" : "dimensões normais"}${sp ? ` (maior eixo ${nf(sp.eixo, 0)} mm)` : ""} e ecotextura homogênea, sem lesões focais.`);
+    }
+    if (num(s.aorta_calibre) != null || s.aorta_desc) {
+      const a = C.computeAorta(s);
+      const parts = [];
+      if (a) {
+        let t = `Aorta abdominal de calibre ${a.aneurisma ? "aumentado" : a.ectasia ? "no limite superior" : "normal"} (${nf(a.calibre, 0)} mm)`;
+        if (a.aneurisma) { t += ", caracterizando aneurisma"; flags.push("aneurisma de aorta abdominal"); }
+        else if (a.ectasia) { t += " (ectasia)"; flags.push("ectasia aórtica"); }
+        else t += ", sem dilatações";
+        parts.push(t + ".");
+      }
+      if (s.aorta_desc) parts.push(s.aorta_desc);
+      push("Aorta e retroperitônio", parts.join(" "));
+    }
+  }
+
+  if (inc("total", "rins_vias")) {
+    push("Rins", kidneyText(s, "rd", "Rim direito", flags) + "\n" + kidneyText(s, "re", "Rim esquerdo", flags));
+  }
+
+  if (inc("total", "rins_vias", "prostata")) {
+    if (s.bexiga_status === "alterado" && s.bexiga_desc) { push("Bexiga", s.bexiga_desc); flags.push("alteração vesical"); }
+    else {
+      const b = C.computeBladder(s);
+      let t = "Bexiga com adequada repleção, paredes finas e regulares, conteúdo anecoico, sem cálculos ou imagens ecogênicas.";
+      if (b && b.volume != null) t += ` Volume vesical estimado: ${nf(b.volume, 0)} mL.`;
+      if (b && b.rpm != null) { t += ` Resíduo pós-miccional: ${nf(b.rpm, 0)} mL.`; if (b.rpmAlterado) flags.push("resíduo pós-miccional elevado"); }
+      push("Bexiga", t);
+    }
+  }
+
+  if (inc("total", "prostata")) {
+    if (s.prost_status === "alterado" && s.prost_desc) { push("Próstata", s.prost_desc); flags.push("alteração prostática"); }
+    else {
+      const p = C.computeProstate(s);
+      let t = `Próstata de textura ${s.prost_textura || "homogênea"}, contornos regulares`;
+      if (p && p.volume != null) { t += `, com volume estimado de ${nf(p.volume, 1)} cm³`; if (p.aumentada) { t += " (aumentada)"; flags.push("aumento do volume prostático"); } }
+      t += ".";
+      if (p && p.density != null) { t += ` PSA de ${nf(p.psa, 2)} ng/mL; densidade de PSA de ${nf(p.density, 2)} ng/mL/cm³${p.densAlterada ? " (elevada)" : ""}.`; if (p.densAlterada) flags.push("densidade de PSA elevada"); }
+      push("Próstata", t);
+    }
+  }
+
+  if (s.obs_texto) push("Observações", s.obs_texto);
+}
+
 /* ---------- conclusão ---------- */
 function buildConclusion(examId, ctx, flags) {
   const { dating } = ctx;
@@ -553,6 +673,8 @@ function buildConclusion(examId, ctx, flags) {
   } else if (examId === "pbf") {
     const bpp = C.computeBPP(ctx.s);
     if (bpp) lines.push(`Perfil biofísico fetal ${bpp.score}/${bpp.max}.`);
+  } else if (examId === "abdome") {
+    // conclusão tratada pelo bloco de achados abaixo
   } else {
     const base = examId === "gemelar" ? "Gestação gemelar tópica" : "Gestação tópica, feto único e vivo";
     // Dupla referência de IG: quando a IG adotada não vem da biometria e há
@@ -575,6 +697,8 @@ function buildConclusion(examId, ctx, flags) {
     lines.push("Estudo morfológico sem evidência de malformações maiores; anatomia fetal compatível com a idade gestacional.");
   } else if (examId === "primeiro_tri") {
     lines.push("Demais estruturas avaliadas sem alterações para a idade gestacional.");
+  } else if (examId === "abdome") {
+    lines.push("Exame ecográfico dentro dos limites da normalidade.");
   } else if (examId !== "cervical" && examId !== "pbf") {
     lines.push("Vitalidade fetal preservada e demais parâmetros dentro da normalidade para a idade gestacional.");
   }

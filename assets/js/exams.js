@@ -28,6 +28,24 @@ const bcfField = {
   id: "bcf", label: "BCF", type: "num", unit: "bpm", cols: 1, min: 60, max: 220,
 };
 
+// Identificação para exames não-obstétricos (sem DUM/gesta)
+const identGeneral = () => ({
+  id: "ident",
+  title: "Identificação",
+  fields: [
+    { id: "pac_nome", label: "Paciente", type: "text", cols: 2 },
+    { id: "pac_idade", label: "Idade", type: "num", unit: "anos", cols: 1 },
+    { id: "pac_sexo", label: "Sexo", type: "select", cols: 1, opts: [["feminino", "feminino"], ["masculino", "masculino"]] },
+    { id: "exam_data", label: "Data do exame", type: "date", cols: 1 },
+    { id: "indicacao", label: "Indicação clínica", type: "text", cols: 3 },
+    { id: "medico", label: "Médico(a)", type: "text", cols: 2 },
+    { id: "crm", label: "CRM", type: "text", cols: 1 },
+  ],
+});
+
+// helper de visibilidade por tipo de laudo do abdome
+const abdIn = (...tipos) => (s) => tipos.includes(s.abdome_tipo || "total");
+
 // Datação: DUM (na identificação) + IG informada pela mãe + USG anterior + seletor
 const datingSection = () => ({
   id: "datacao",
@@ -374,6 +392,112 @@ export const EXAMS = {
       fluidSection(),
     ],
   },
+
+  abdome: {
+    id: "abdome",
+    name: "Abdome",
+    icon: "🫀",
+    subtitle: "Abdome total / superior / rins e vias urinárias / próstata",
+    sections: [
+      identGeneral(),
+      {
+        id: "tipo", title: "Tipo de laudo", fields: [
+          { id: "abdome_tipo", label: "Modelo", type: "select", cols: 2, default: "total",
+            opts: [["total", "Abdome total"], ["superior", "Abdome superior"], ["rins_vias", "Rins e vias urinárias"], ["prostata", "Próstata (via abdominal)"]] },
+          { id: "abd_tecnica", label: "Técnica", type: "text", cols: 3, placeholder: "Exame realizado com transdutor convexo multifrequencial…" },
+        ],
+      },
+      {
+        id: "figado", title: "Fígado", showIf: abdIn("total", "superior"),
+        fields: [
+          { id: "figado_status", label: "Fígado", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "figado_lobo_dir", label: "Lobo direito (long.)", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "esteatose", label: "Esteatose", type: "select", cols: 1, opts: [["ausente", "ausente"], ["leve", "grau I (leve)"], ["moderada", "grau II (moderada)"], ["acentuada", "grau III (acentuada)"]] },
+          { id: "figado_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.figado_status === "alterado" },
+        ],
+      },
+      {
+        id: "vias_biliares", title: "Vesícula e vias biliares", showIf: abdIn("total", "superior"),
+        fields: [
+          { id: "vb_status", label: "Vesícula/vias", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "vb_situacao", label: "Vesícula", type: "select", cols: 1, opts: [["normodistendida", "normodistendida"], ["contraída", "contraída"], ["ausente", "ausente (colecistectomia)"]] },
+          { id: "vb_calculos", label: "Cálculos", type: "select", cols: 1, opts: [["ausentes", "ausentes"], ["presente", "presente(s)"]] },
+          { id: "vb_calc_maior", label: "Maior cálculo", type: "num", unit: "mm", cols: 1, showIf: (s) => s.vb_calculos === "presente" },
+          { id: "coledoco", label: "Colédoco", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "vb_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.vb_status === "alterado" },
+        ],
+      },
+      {
+        id: "pancreas", title: "Pâncreas", showIf: abdIn("total", "superior"),
+        fields: [
+          { id: "panc_status", label: "Pâncreas", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"], ["prejudicado", "Visualização prejudicada"]] },
+          { id: "wirsung", label: "Ducto de Wirsung", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "panc_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.panc_status === "alterado" },
+        ],
+      },
+      {
+        id: "baco", title: "Baço", showIf: abdIn("total", "superior"),
+        fields: [
+          { id: "baco_status", label: "Baço", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "baco_eixo", label: "Maior eixo", type: "num", unit: "mm", cols: 1 },
+          { id: "baco_out", label: "Avaliação", type: "note", compute: "spleen", cols: 2 },
+          { id: "baco_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.baco_status === "alterado" },
+        ],
+      },
+      {
+        id: "aorta", title: "Aorta e retroperitônio", optional: true, showIf: abdIn("total", "superior"),
+        fields: [
+          { id: "aorta_calibre", label: "Aorta — calibre", type: "num", unit: "mm", cols: 1 },
+          { id: "aorta_out", label: "Avaliação", type: "note", compute: "aorta", cols: 2 },
+          { id: "aorta_desc", label: "Retroperitônio / observações", type: "textarea", cols: 3 },
+        ],
+      },
+      {
+        id: "rins", title: "Rins", showIf: abdIn("total", "rins_vias"),
+        fields: [
+          { id: "rd_status", label: "Rim direito", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "rd_comp", label: "RD — comprimento", type: "num", unit: "mm", cols: 1 },
+          { id: "rd_dilatacao", label: "RD — dilatação", type: "select", cols: 1, opts: [["ausente", "ausente"], ["leve", "leve"], ["moderada", "moderada"], ["acentuada", "acentuada"]] },
+          { id: "rd_calculo", label: "RD — cálculo", type: "select", cols: 1, opts: [["ausente", "ausente"], ["presente", "presente"]] },
+          { id: "rd_calc_maior", label: "RD — maior cálculo", type: "num", unit: "mm", cols: 1, showIf: (s) => s.rd_calculo === "presente" },
+          { id: "rd_desc", label: "RD — descrição", type: "textarea", cols: 2, showIf: (s) => s.rd_status === "alterado" },
+          { id: "re_status", label: "Rim esquerdo", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "re_comp", label: "RE — comprimento", type: "num", unit: "mm", cols: 1 },
+          { id: "re_dilatacao", label: "RE — dilatação", type: "select", cols: 1, opts: [["ausente", "ausente"], ["leve", "leve"], ["moderada", "moderada"], ["acentuada", "acentuada"]] },
+          { id: "re_calculo", label: "RE — cálculo", type: "select", cols: 1, opts: [["ausente", "ausente"], ["presente", "presente"]] },
+          { id: "re_calc_maior", label: "RE — maior cálculo", type: "num", unit: "mm", cols: 1, showIf: (s) => s.re_calculo === "presente" },
+          { id: "re_desc", label: "RE — descrição", type: "textarea", cols: 2, showIf: (s) => s.re_status === "alterado" },
+        ],
+      },
+      {
+        id: "bexiga", title: "Bexiga", showIf: abdIn("total", "rins_vias", "prostata"),
+        fields: [
+          { id: "bexiga_status", label: "Bexiga", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "bexiga_d1", label: "Diâmetro 1", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "bexiga_d2", label: "Diâmetro 2", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "bexiga_d3", label: "Diâmetro 3", type: "num", unit: "mm", cols: 1, opt: true },
+          { id: "rpm", label: "Resíduo pós-miccional", type: "num", unit: "mL", cols: 1, opt: true },
+          { id: "bexiga_out", label: "Volume / RPM", type: "note", compute: "bladder", cols: 2 },
+          { id: "bexiga_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.bexiga_status === "alterado" },
+        ],
+      },
+      {
+        id: "prostata", title: "Próstata", showIf: abdIn("total", "prostata"),
+        fields: [
+          { id: "prost_status", label: "Próstata", type: "seg", cols: 1, default: "normal", opts: [["normal", "Normal"], ["alterado", "Alterado"]] },
+          { id: "prost_d1", label: "Diâmetro 1", type: "num", unit: "mm", cols: 1 },
+          { id: "prost_d2", label: "Diâmetro 2", type: "num", unit: "mm", cols: 1 },
+          { id: "prost_d3", label: "Diâmetro 3", type: "num", unit: "mm", cols: 1 },
+          { id: "prost_textura", label: "Textura", type: "select", cols: 1, opts: [["homogênea", "homogênea"], ["heterogênea", "heterogênea"], ["nodular", "nodular"]] },
+          { id: "psa", label: "PSA", type: "num", unit: "ng/mL", cols: 1, opt: true },
+          { id: "prost_out", label: "Volume / densidade de PSA", type: "note", compute: "prostate", cols: 3 },
+          { id: "prost_desc", label: "Descrição do achado", type: "textarea", cols: 3, showIf: (s) => s.prost_status === "alterado" },
+        ],
+      },
+      { id: "obs", title: "Observações / conclusão adicional", fields: [
+        { id: "obs_texto", label: "Texto livre", type: "textarea", cols: 3 }] },
+    ],
+  },
 };
 
-export const EXAM_ORDER = ["obstetrica", "primeiro_tri", "morfologico", "gemelar", "cervical", "pbf"];
+export const EXAM_ORDER = ["obstetrica", "primeiro_tri", "morfologico", "gemelar", "cervical", "pbf", "abdome"];

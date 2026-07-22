@@ -162,5 +162,21 @@ for (const ex of ["obstetrica", "primeiro_tri", "morfologico", "gemelar", "cervi
   } catch (e) { check(`exame ${ex}`, false, e.message); }
 }
 
+console.log("\n== Abdome ==");
+const pv = C.computeProstate({ prost_d1: 40, prost_d2: 30, prost_d3: 35, psa: 4 });
+check("volume prostático ~22 cm³", approx(pv.volume, 22, 0.5), pv.volume.toFixed(1) + " cm³");
+check("densidade de PSA ~0,18 (elevada)", approx(pv.density, 0.18, 0.02) && pv.densAlterada, pv.density.toFixed(2));
+check("baço 130 mm = esplenomegalia", C.computeSpleen({ baco_eixo: 130 }).esplenomegalia, "130 mm");
+check("aorta 32 mm = aneurisma", C.computeAorta({ aorta_calibre: 32 }).aneurisma, "32 mm");
+const bl = C.computeBladder({ bexiga_d1: 60, bexiga_d2: 50, bexiga_d3: 40, rpm: 80 });
+check("volume vesical ~63 mL", approx(bl.volume, 62.8, 1), bl.volume.toFixed(0) + " mL");
+check("RPM 80 mL elevado", bl.rpmAlterado, "80 mL");
+for (const tipo of ["total", "superior", "rins_vias", "prostata"]) {
+  const r = generateReport("abdome", { pac_nome: "T", pac_sexo: "masculino", exam_data: "2026-07-16", abdome_tipo: tipo, baco_eixo: 100, aorta_calibre: 20, rd_comp: 105, re_comp: 108, bexiga_d1: 60, bexiga_d2: 50, bexiga_d3: 40, prost_d1: 40, prost_d2: 30, prost_d3: 35 }, {}, {});
+  check(`abdome tipo=${tipo}: título e seções`, /ABDOME|RINS|PRÓSTATA/.test(r.title) && r.sections.length > 0, r.title + " · " + r.sections.length + " seções");
+}
+const rAbd = generateReport("abdome", { exam_data: "2026-07-16", abdome_tipo: "total", esteatose: "moderada", vb_calculos: "presente", vb_calc_maior: 12, baco_eixo: 130 }, {}, {});
+check("abdome: achados na conclusão (esteatose/colelitíase/esplenomegalia)", /esteatose|colelitíase|esplenomegalia/.test(rAbd.conclusion), rAbd.conclusion.slice(0, 80));
+
 console.log(`\n${fail === 0 ? "✅" : "❌"} ${pass} passaram, ${fail} falharam\n`);
 process.exit(fail === 0 ? 0 : 1);

@@ -20,6 +20,7 @@ peso fetal estimado, percentis, Doppler, líquido amniótico, etc.).
 | **Gemelar** | Corionicidade/amnionicidade, biometria por feto, discordância de peso, sinais de STFF |
 | **Colo / Cervicometria** | Comprimento do colo, afunilamento, sludge, risco de parto prematuro |
 | **Perfil Biofísico** | Escore de Manning (5 componentes) |
+| **Abdome** | Uma aba com tipos alternáveis — **abdome total / superior / rins e vias urinárias / próstata**: fígado (esteatose), vesícula/vias biliares, pâncreas, baço (esplenomegalia), aorta (aneurisma), rins (dilatação/cálculos), bexiga (volume/RPM), próstata (**volume** + **densidade de PSA**) |
 
 ## Recursos
 

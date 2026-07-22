@@ -27,7 +27,11 @@ export function renderForm(container) {
     st.innerHTML = `<div class="body" style="padding:10px 15px;color:var(--muted);font-size:12.5px">${exam.icon} <strong style="color:var(--ink)">${exam.name}</strong> — ${exam.subtitle}</div>`;
     container.appendChild(st);
   }
-  for (const sec of exam.sections) container.appendChild(renderSection(sec));
+  for (const sec of exam.sections) {
+    const card = renderSection(sec);
+    container.appendChild(card);
+    if (sec.showIf) condRefs.push({ field: sec, wrapper: card });
+  }
   refresh(); // preenche notas
 }
 
@@ -281,6 +285,34 @@ function computeNoteHtml(key, s, dating, gaW) {
       const cls = disc >= 25 ? "grave" : disc >= 20 ? "alerta" : "ok";
       let h = `<span class="k">PFE A/B:</span> ${a.efw.grams} g / ${b.efw.grams} g · ${chip("discordância " + nf(disc, 1) + "%", cls)}`;
       return h;
+    }
+    case "spleen": {
+      const sp = C.computeSpleen(s);
+      if (!sp) return `<span class="k">Informe o maior eixo do baço.</span>`;
+      return sp.esplenomegalia ? chip("esplenomegalia (> 120 mm)", "alerta") : chip("dimensões normais", "ok");
+    }
+    case "aorta": {
+      const a = C.computeAorta(s);
+      if (!a) return `<span class="k">Informe o calibre da aorta.</span>`;
+      if (a.aneurisma) return chip("aneurisma (≥ 30 mm)", "grave");
+      if (a.ectasia) return chip("ectasia (25–29 mm)", "alerta");
+      return chip("calibre normal", "ok");
+    }
+    case "bladder": {
+      const b = C.computeBladder(s);
+      if (!b) return `<span class="k">Informe os diâmetros ou o resíduo pós-miccional.</span>`;
+      let h = "";
+      if (b.volume != null) h += `<span class="k">Volume:</span> ${chip(nf(b.volume, 0) + " mL")} `;
+      if (b.rpm != null) h += `<span class="k">RPM:</span> ${chip(nf(b.rpm, 0) + " mL", b.rpmAlterado ? "alerta" : "ok")}`;
+      return h || `<span class="k">—</span>`;
+    }
+    case "prostate": {
+      const p = C.computeProstate(s);
+      if (!p) return `<span class="k">Informe os 3 diâmetros (e o PSA, se desejar).</span>`;
+      let h = "";
+      if (p.volume != null) h += `<span class="k">Volume:</span> ${chip(nf(p.volume, 1) + " cm³", p.aumentada ? "alerta" : "ok")} `;
+      if (p.density != null) h += `<span class="k">Densidade PSA:</span> ${chip(nf(p.density, 2), p.densAlterada ? "alerta" : "ok")}`;
+      return h || `<span class="k">—</span>`;
     }
     default: return "";
   }
