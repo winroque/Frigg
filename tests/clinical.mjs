@@ -187,6 +187,13 @@ for (const tipo of ["total", "superior", "rins_vias", "prostata"]) {
 }
 const rAbd = generateReport("abdome", { exam_data: "2026-07-16", abdome_tipo: "total", esteatose: "moderada", vb_calculos: "presente", vb_calc_maior: 12, baco_eixo: 130 }, {}, {});
 check("abdome: achados na conclusão (esteatose/colelitíase/esplenomegalia)", /esteatose|colelitíase|esplenomegalia/.test(rAbd.conclusion), rAbd.conclusion.slice(0, 80));
+// chips de achados (multi) → frases no laudo
+check("multiVals separa por |", C.multiVals({ figado_achados: "cisto|nodulo" }, "figado_achados").length === 2, "ok");
+const rChip = generateReport("abdome", { exam_data: "2026-07-16", abdome_tipo: "total", figado_achados: "cisto|hepatopatia", rd_achados: "cisto", rd_comp: 100, re_comp: 100 }, {}, {});
+const figSec = rChip.sections.find((x) => x.title === "Fígado");
+check("chip fígado gera frase (cisto + hepatopatia)", /cisto\(s\) simples/.test(figSec.text) && /hepatopatia/.test(figSec.text), "ok");
+check("rins em seções separadas", rChip.sections.some((x) => x.title === "Rim direito") && rChip.sections.some((x) => x.title === "Rim esquerdo"), "ok");
+check("chip renal gera frase (cisto)", /cisto cortical simples/.test(rChip.sections.find((x) => x.title === "Rim direito").text), "ok");
 
 console.log(`\n${fail === 0 ? "✅" : "❌"} ${pass} passaram, ${fail} falharam\n`);
 process.exit(fail === 0 ? 0 : 1);

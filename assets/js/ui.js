@@ -86,10 +86,33 @@ function renderField(f) {
     for (const opt of f.opts) {
       const [v, label] = Array.isArray(opt) ? opt : [opt, opt];
       const b = el("button", val === v ? "on" : null, label); b.type = "button";
-      b.addEventListener("click", () => { setValue(f.id, v); });
+      b.addEventListener("click", () => {
+        seg.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+        b.classList.add("on");
+        setValue(f.id, v);
+      });
       seg.appendChild(b);
     }
     wrap.appendChild(seg);
+    return wrap;
+  }
+
+  if (f.type === "multi") {
+    // chips de múltipla seleção — clique para marcar os achados presentes
+    const box = el("div", "multi");
+    const selected = new Set((cur || "").split("|").filter(Boolean));
+    for (const opt of f.opts) {
+      const [v, label] = Array.isArray(opt) ? opt : [opt, opt];
+      const b = el("button", selected.has(v) ? "on" : null, label); b.type = "button";
+      b.addEventListener("click", () => {
+        const set = new Set((state.values[f.id] || "").split("|").filter(Boolean));
+        if (set.has(v)) set.delete(v); else set.add(v);
+        b.classList.toggle("on"); // feedback visual imediato
+        setValue(f.id, [...set].join("|"));
+      });
+      box.appendChild(b);
+    }
+    wrap.appendChild(box);
     return wrap;
   }
 

@@ -556,18 +556,23 @@ function buildPBF(ctx, push, flags) {
 /* ---------- Abdome (total / superior / rins e vias / próstata) ---------- */
 const estLabel = (v) => ({ leve: "grau I (leve)", moderada: "grau II (moderada)", acentuada: "grau III (acentuada)" }[v] || v);
 
-function kidneyText(s, pfx, label, flags) {
-  const num = C.helpers.num;
-  if (s[pfx + "_status"] === "alterado" && s[pfx + "_desc"]) { flags.push(`alteração renal à ${label.includes("direito") ? "direita" : "esquerda"}`); return `${label}: ${s[pfx + "_desc"]}`; }
-  const comp = num(s[pfx + "_comp"]);
-  const dimTxt = comp != null ? (comp < 90 ? "reduzidas" : comp > 120 ? "aumentadas" : "normais") : "normais";
-  let t = `${label} tópico, de dimensões ${dimTxt}${comp != null ? ` (${nf(comp, 0)} mm)` : ""}, com boa diferenciação corticomedular`;
-  const dil = s[pfx + "_dilatacao"];
-  if (dil && dil !== "ausente") { t += `, com dilatação pielocalicinal ${dil}`; flags.push(`dilatação pielocalicinal ${dil}`); }
-  else t += ", sem dilatação pielocalicinal";
-  if (s[pfx + "_calculo"] === "presente") { t += `, com cálculo${num(s[pfx + "_calc_maior"]) ? ` de ${nf(num(s[pfx + "_calc_maior"]), 0)} mm` : ""}`; flags.push("cálculo renal"); }
-  else t += ", sem cálculos";
-  return t + " ou imagens expansivas.";
+// Frases dos chips de achados, por chave, para cada órgão
+const ACHADOS = {
+  figado: { cisto: "cisto(s) simples", nodulo: "nódulo sólido", hemangioma: "imagem sugestiva de hemangioma", hepatopatia: "sinais de hepatopatia crônica (contornos bocelados e textura grosseira)", calcificacao: "calcificação(ões)", dilatacao_vias: "dilatação das vias biliares intra-hepáticas" },
+  vb: { polipo: "pólipo(s) de parede", lama: "lama biliar", espessamento: "espessamento parietal", microcalculos: "microcálculos" },
+  panc: { cisto: "imagem cística", dilatacao: "dilatação do ducto de Wirsung", calcificacao: "calcificações", lesao: "lesão focal" },
+  baco: { cisto: "cisto(s)", calcificacao: "calcificação(ões)", lesao: "lesão focal", baco_acessorio: "baço acessório" },
+  aorta: { linfonodo: "linfonodomegalias retroperitoneais", liquido: "líquido livre", massa: "massa retroperitoneal" },
+  rim: { cisto: "cisto cortical simples", cistos: "cistos corticais múltiplos", cisto_complexo: "cisto de conteúdo complexo", nodulo: "nódulo sólido", perda_dif: "perda da diferenciação corticomedular" },
+  bexiga: { espessamento: "espessamento parietal", calculo: "cálculo", sedimento: "sedimento/debris de permeio", diverticulo: "divertículo", lesao: "imagem vegetante" },
+  prost: { calcificacoes: "calcificações", nodulo: "nódulo", protrusao: "protrusão intravesical", cisto: "cisto", hpb: "aspecto compatível com hiperplasia prostática benigna" },
+};
+function achadosText(s, id, group) {
+  const keys = C.multiVals(s, id);
+  const extra = (s[id.replace("_achados", "_outros")] || "").trim();
+  const frases = keys.map((k) => ACHADOS[group][k]).filter(Boolean);
+  if (extra) frases.push(extra);
+  return frases;
 }
 
 function buildAbdome(ctx, push, flags) {
@@ -578,14 +583,17 @@ function buildAbdome(ctx, push, flags) {
   if (s.abd_tecnica) push("Técnica", s.abd_tecnica);
 
   if (inc("total", "superior")) {
-    if (s.figado_status === "alterado" && s.figado_desc) { push("Fígado", s.figado_desc); flags.push("alteração hepática"); }
-    else {
-      let t = `Fígado de dimensões normais${num(s.figado_lobo_dir) ? ` (lobo direito ${nf(num(s.figado_lobo_dir), 0)} mm)` : ""}, contornos regulares e ecotextura homogênea, sem lesões focais. Veias hepáticas e sistema porta de calibre normal.`;
+    // Fígado
+    {
+      const ach = achadosText(s, "figado_achados", "figado");
+      let t = `Fígado de dimensões normais${num(s.figado_lobo_dir) ? ` (lobo direito ${nf(num(s.figado_lobo_dir), 0)} mm)` : ""}, contornos regulares e ecotextura homogênea. Veias hepáticas e sistema porta de calibre normal.`;
       if (s.esteatose && s.esteatose !== "ausente") { t += ` Ecotextura hepática compatível com esteatose ${estLabel(s.esteatose)}.`; flags.push(`esteatose hepática ${estLabel(s.esteatose)}`); }
+      if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach); }
+      else t += " Sem lesões focais.";
       push("Fígado", t);
     }
-    if (s.vb_status === "alterado" && s.vb_desc) { push("Vesícula e vias biliares", s.vb_desc); flags.push("alteração das vias biliares"); }
-    else {
+    // Vesícula e vias biliares
+    {
       const parts = [];
       if (s.vb_situacao === "ausente") parts.push("Ausência da vesícula biliar (colecistectomia prévia).");
       else {
@@ -594,62 +602,93 @@ function buildAbdome(ctx, push, flags) {
         else v += ", sem cálculos ou lama biliar em seu interior";
         parts.push(v + ".");
       }
+      const ach = achadosText(s, "vb_achados", "vb");
+      if (ach.length) { parts.push(`Observa-se ${ach.join("; ")}.`); flags.push(...ach); }
       parts.push(`Vias biliares intra e extra-hepáticas não dilatadas${num(s.coledoco) ? ` (colédoco ${nf(num(s.coledoco), 0)} mm)` : ""}.`);
       push("Vesícula e vias biliares", parts.join(" "));
     }
-    if (s.panc_status === "alterado" && s.panc_desc) { push("Pâncreas", s.panc_desc); flags.push("alteração pancreática"); }
-    else if (s.panc_status === "prejudicado") push("Pâncreas", "Pâncreas parcialmente avaliado por interposição gasosa; a porção visualizada não apresenta alterações e o ducto de Wirsung não se encontra dilatado.");
-    else push("Pâncreas", `Pâncreas de forma, dimensões e ecotextura normais, com ducto de Wirsung não dilatado${num(s.wirsung) ? ` (${nf(num(s.wirsung), 0)} mm)` : ""}.`);
-
-    if (s.baco_status === "alterado" && s.baco_desc) { push("Baço", s.baco_desc); flags.push("alteração esplênica"); }
-    else {
+    // Pâncreas
+    {
+      const ach = achadosText(s, "panc_achados", "panc");
+      if (s.panc_visual === "prejudicada") push("Pâncreas", `Pâncreas parcialmente avaliado por interposição gasosa.${ach.length ? ` Na porção visualizada: ${ach.join("; ")}.` : " Porção visualizada sem alterações."}`);
+      else {
+        let t = `Pâncreas de forma, dimensões e ecotextura normais, com ducto de Wirsung não dilatado${num(s.wirsung) ? ` (${nf(num(s.wirsung), 0)} mm)` : ""}.`;
+        if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach); }
+        push("Pâncreas", t);
+      }
+    }
+    // Baço
+    {
       const sp = C.computeSpleen(s);
       if (sp && sp.esplenomegalia) flags.push("esplenomegalia");
-      push("Baço", `Baço de ${sp && sp.esplenomegalia ? "dimensões aumentadas" : "dimensões normais"}${sp ? ` (maior eixo ${nf(sp.eixo, 0)} mm)` : ""} e ecotextura homogênea, sem lesões focais.`);
+      let t = `Baço de ${sp && sp.esplenomegalia ? "dimensões aumentadas" : "dimensões normais"}${sp ? ` (maior eixo ${nf(sp.eixo, 0)} mm)` : ""} e ecotextura homogênea.`;
+      const ach = achadosText(s, "baco_achados", "baco");
+      if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach.filter((x) => !/acessório/.test(x))); }
+      else t += " Sem lesões focais.";
+      push("Baço", t);
     }
-    if (num(s.aorta_calibre) != null || s.aorta_desc) {
+    // Aorta e retroperitônio
+    {
       const a = C.computeAorta(s);
-      const parts = [];
-      if (a) {
-        let t = `Aorta abdominal de calibre ${a.aneurisma ? "aumentado" : a.ectasia ? "no limite superior" : "normal"} (${nf(a.calibre, 0)} mm)`;
-        if (a.aneurisma) { t += ", caracterizando aneurisma"; flags.push("aneurisma de aorta abdominal"); }
-        else if (a.ectasia) { t += " (ectasia)"; flags.push("ectasia aórtica"); }
-        else t += ", sem dilatações";
-        parts.push(t + ".");
+      const ach = achadosText(s, "aorta_achados", "aorta");
+      if (a || ach.length) {
+        const parts = [];
+        if (a) {
+          let t = `Aorta abdominal de calibre ${a.aneurisma ? "aumentado" : a.ectasia ? "no limite superior" : "normal"} (${nf(a.calibre, 0)} mm)`;
+          if (a.aneurisma) { t += ", caracterizando aneurisma"; flags.push("aneurisma de aorta abdominal"); }
+          else if (a.ectasia) { t += " (ectasia)"; flags.push("ectasia aórtica"); }
+          else t += ", sem dilatações";
+          parts.push(t + ".");
+        }
+        if (ach.length) { parts.push(`Observa-se ${ach.join("; ")}.`); flags.push(...ach); }
+        push("Aorta e retroperitônio", parts.join(" "));
       }
-      if (s.aorta_desc) parts.push(s.aorta_desc);
-      push("Aorta e retroperitônio", parts.join(" "));
     }
   }
 
   if (inc("total", "rins_vias")) {
-    push("Rins", kidneyText(s, "rd", "Rim direito", flags) + "\n" + kidneyText(s, "re", "Rim esquerdo", flags));
+    push("Rim direito", kidneyText(s, "rd", flags));
+    push("Rim esquerdo", kidneyText(s, "re", flags));
   }
 
   if (inc("total", "rins_vias", "prostata")) {
-    if (s.bexiga_status === "alterado" && s.bexiga_desc) { push("Bexiga", s.bexiga_desc); flags.push("alteração vesical"); }
-    else {
-      const b = C.computeBladder(s);
-      let t = "Bexiga com adequada repleção, paredes finas e regulares, conteúdo anecoico, sem cálculos ou imagens ecogênicas.";
-      if (b && b.volume != null) t += ` Volume vesical estimado: ${nf(b.volume, 0)} mL.`;
-      if (b && b.rpm != null) { t += ` Resíduo pós-miccional: ${nf(b.rpm, 0)} mL.`; if (b.rpmAlterado) flags.push("resíduo pós-miccional elevado"); }
-      push("Bexiga", t);
-    }
+    const b = C.computeBladder(s);
+    let t = "Bexiga com adequada repleção, paredes finas e regulares, conteúdo anecoico.";
+    if (b && b.volume != null) t += ` Volume vesical estimado: ${nf(b.volume, 0)} mL.`;
+    if (b && b.rpm != null) { t += ` Resíduo pós-miccional: ${nf(b.rpm, 0)} mL.`; if (b.rpmAlterado) flags.push("resíduo pós-miccional elevado"); }
+    const ach = achadosText(s, "bexiga_achados", "bexiga");
+    if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach); }
+    push("Bexiga", t);
   }
 
   if (inc("total", "prostata")) {
-    if (s.prost_status === "alterado" && s.prost_desc) { push("Próstata", s.prost_desc); flags.push("alteração prostática"); }
-    else {
-      const p = C.computeProstate(s);
-      let t = `Próstata de textura ${s.prost_textura || "homogênea"}, contornos regulares`;
-      if (p && p.volume != null) { t += `, com volume estimado de ${nf(p.volume, 1)} cm³`; if (p.aumentada) { t += " (aumentada)"; flags.push("aumento do volume prostático"); } }
-      t += ".";
-      if (p && p.density != null) { t += ` PSA de ${nf(p.psa, 2)} ng/mL; densidade de PSA de ${nf(p.density, 2)} ng/mL/cm³${p.densAlterada ? " (elevada)" : ""}.`; if (p.densAlterada) flags.push("densidade de PSA elevada"); }
-      push("Próstata", t);
-    }
+    const p = C.computeProstate(s);
+    let t = `Próstata de textura ${s.prost_textura || "homogênea"}, contornos regulares`;
+    if (p && p.volume != null) { t += `, com volume estimado de ${nf(p.volume, 1)} cm³`; if (p.aumentada) { t += " (aumentada)"; flags.push("aumento do volume prostático"); } }
+    t += ".";
+    const ach = achadosText(s, "prost_achados", "prost");
+    if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach.filter((x) => !/hiperplasia/.test(x))); }
+    if (p && p.density != null) { t += ` PSA de ${nf(p.psa, 2)} ng/mL; densidade de PSA de ${nf(p.density, 2)} ng/mL/cm³${p.densAlterada ? " (elevada)" : ""}.`; if (p.densAlterada) flags.push("densidade de PSA elevada"); }
+    push("Próstata", t);
   }
 
   if (s.obs_texto) push("Observações", s.obs_texto);
+}
+
+function kidneyText(s, pfx, flags) {
+  const num = C.helpers.num;
+  const comp = num(s[pfx + "_comp"]);
+  const dimTxt = comp != null ? (comp < 90 ? "reduzidas" : comp > 120 ? "aumentadas" : "normais") : "normais";
+  let t = `Tópico, de dimensões ${dimTxt}${comp != null ? ` (${nf(comp, 0)} mm)` : ""}, com boa diferenciação corticomedular`;
+  const dil = s[pfx + "_dilatacao"];
+  if (dil && dil !== "ausente") { t += `, com dilatação pielocalicinal ${dil}`; flags.push(`dilatação pielocalicinal ${dil}`); }
+  else t += ", sem dilatação pielocalicinal";
+  if (s[pfx + "_calculo"] === "presente") { t += `, com cálculo${num(s[pfx + "_calc_maior"]) ? ` de ${nf(num(s[pfx + "_calc_maior"]), 0)} mm` : ""}`; flags.push("cálculo renal"); }
+  else t += ", sem cálculos";
+  t += ".";
+  const ach = achadosText(s, pfx + "_achados", "rim");
+  if (ach.length) { t += ` Observa-se ${ach.join("; ")}.`; flags.push(...ach); }
+  return t;
 }
 
 /* ---------- conclusão ---------- */

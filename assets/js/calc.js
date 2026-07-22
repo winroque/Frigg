@@ -481,4 +481,9 @@ export function computeAorta(s) {
   return { calibre: c, aneurisma: c >= 30, ectasia: c >= 25 && c < 30 };
 }
 
+// Valores de um campo "multi" (chips) → array de chaves selecionadas
+export function multiVals(s, id) {
+  return (s[id] || "").split("|").filter(Boolean);
+}
+
 export const helpers = { num, parseDate };
